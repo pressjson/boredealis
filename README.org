@@ -18,3 +18,11 @@ So vision transformers are meant for image classification. Time to learn a new t
      - one for clouds (i.e. it's faking clouds over the same image) (Randy) (done)
 4. A script to take a video, make it a bunch of images, then chunks(?), then enhance, then reverse the process
 5. A . . . GUI?
+
+* Randy
+
+Randy is the official mascot of this build. Randy is the result of synthetic clouds and noise. Why is he named Randy? Because I am starting to go crazy.
+
+#+CAPTION: Randy
+#+NAME: Randy
+[[./Randy.png]]
