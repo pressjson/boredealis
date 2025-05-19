@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-
 import os
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 import torch.nn.functional as F  # Needed for GELU in TransformerEncoderLayer
 import torchvision.transforms.functional as FU
@@ -14,7 +13,6 @@ import noise
 import numpy
 import time
 import random
-import math  # For isnan check
 
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
@@ -26,33 +24,29 @@ else:
 class ImageDataset(Dataset):
     def __init__(
         self,
-        root_dir=os.path.join("data", "images"),
-        clear_images=None,
-        cloud_images=None,
+        images=None,
+        data_dir=None,
         clear_transform=None,
         cloud_transform=None,
     ):
-        self.cloud_images = cloud_images
-        self.clear_images = clear_images
+        self.images = images
+        self.data_dir = data_dir
         self.clear_transform = clear_transform
         self.cloud_transform = cloud_transform
-        self.root_dir = root_dir
 
     def __len__(self):
-        return len(self.clear_images)
+        return len(self.images)
 
     def __getitem__(self, i):
-        lq_image = Image.open(self.cloud_images[i]).convert("RGB")
-        hq_image = Image.open(self.clear_images[i]).convert("RGB")
+        image = Image.open(os.path.join(self.data_dir, self.images[i])).convert("RGB")
         if self.clear_transform:
-            lq_image = self.cloud_transform(lq_image)
-            hq_image = self.clear_transform(hq_image)
-        return lq_image, hq_image
+            cloud_image = self.cloud_transform(image)
+            clear_image = self.clear_transform(image)
+        return cloud_image, clear_image
 
 
 # google gemini pro 2.5 advanced code
 # edited by me
-# originally from COSC200, adapted to fit this use case.
 
 
 def generate_perlin_noise_image(
@@ -114,17 +108,18 @@ class CombineWithClouds:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.output_size = output_size
 
-    def __call__(self, main_tensor):
+    def __call__(self, main_image):
         # Takes a pipeline tensor, turns it *back* into an image, combines it with a perlin noise, then back into a tensor
         # There has to be a better way, but this works, I guess
-        main_image = FU.to_pil_image(main_tensor)
+        # if type(main_image) != Image:
+        #     main_image = FU.to_pil_image(main_image)
 
         # @TODO: when there is a file of cloud hex values, randomly pick two hex values and make them tuples
         lower_bound = (0, 0, 0)
         upper_bound = (255, 255, 255)
 
-        alpha_lower_bound = 0.5
-        alpha_upper_bound = 0.7
+        alpha_lower_bound = settings.ALPHA_LOWER_BOUND
+        alpha_upper_bound = settings.ALPHA_UPPER_BOUND
 
         fake_clouds = generate_perlin_noise_image(
             settings.IMAGE_SIZE[0], lower_bound=lower_bound, upper_bound=upper_bound
@@ -136,7 +131,7 @@ class CombineWithClouds:
             random.uniform(alpha_lower_bound, alpha_upper_bound),
         )
 
-        return FU.pil_to_tensor(combined_image).float().div(255).to(self.device)
+        return combined_image
 
 
 # google gemini
@@ -151,22 +146,24 @@ class RandomApplyTransforms:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def __call__(self, sample):
+        # for debugging why my computer crashes
+        # return FU.to_tensor(sample)
+
         if random.uniform(0, 1) > self.random_threshold:
             # do nothing
-            return sample
+            return FU.to_tensor(sample)
 
-        if not torch.is_tensor(sample):
-            print(
-                f"Warning: sample is not a tensor. Things may go wrong\nSample type: {type(sample)}"
-            )
-
-        cloud = CombineWithClouds(settings.IMAGE_SIZE)
+        cloud = CombineWithClouds(self.output_size)
         sample = cloud(sample)
-        sample = sample.add(
-            torch.rand(settings.IMAGE_SIZE).mul(self.noise_weight).to(self.device)
-        )
+        sample = FU.to_tensor(sample)
+        noise = torch.rand_like(sample) * self.noise_weight
+        sample = sample + noise
+        sample = torch.clamp(sample, 0.0, 1.0)
 
         return sample
+
+
+# Model definition
 
 
 class DoubleConv(nn.Module):
@@ -240,9 +237,9 @@ class OutConv(nn.Module):
         return self.conv(x)
 
 
-class DeepUNetPyTorch(nn.Module):
+class DeepUNet(nn.Module):
     def __init__(self, n_channels_in, n_classes_out, start_filters=64):
-        super(DeepUNetPyTorch, self).__init__()
+        super(DeepUNet, self).__init__()
         self.n_channels_in = n_channels_in
         self.n_classes_out = n_classes_out
         self.start_filters = start_filters
@@ -314,24 +311,43 @@ class DeepUNetPyTorch(nn.Module):
 
 def train_model(
     IMG_CHANNELS_IN=3,
-    NUM_CLASSES_OUT=1,
+    NUM_CLASSES_OUT=3,
+    START_FILTERS=settings.START_FILTERS,
+    DATA_DIR=os.path.join("data", "images"),
+    num_epochs=settings.NUM_EPOCHS,
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    model = DeepUNetPyTorch(
-        n_channels_in=IMG_CHANNELS_IN, n_classes_out=NUM_CLASSES_OUT, start_filters=64
+    print(f"PyTorch version: {torch.__version__}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA version: {torch.version.cuda}")
+        print(f"HIP version (ROCm): {torch.version.hip}")
+        print(f"Current CUDA device: {torch.cuda.current_device()}")
+        print(f"Device name: {torch.cuda.get_device_name(torch.cuda.current_device())}")
+    print(f"Using device: {device}")
+
+    # return 1
+
+    model = DeepUNet(
+        n_channels_in=IMG_CHANNELS_IN,
+        n_classes_out=NUM_CLASSES_OUT,
+        start_filters=START_FILTERS,
     ).to(device)
+    print(
+        f"Initialized DeepUNet with {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
+    )
 
-    # dataloaders
+    # Dataloaders
 
-    clear_dataloader = transforms.Compose(
+    clear_transform = transforms.Compose(
         [
             transforms.Resize(settings.IMAGE_SIZE),
             transforms.ToTensor(),
         ]
     )
-    cloud_dataloader = transforms.Compose(
+    cloud_transform = transforms.Compose(
         [
             transforms.Resize(settings.IMAGE_SIZE),
             RandomApplyTransforms(
@@ -341,3 +357,163 @@ def train_model(
             ),
         ]
     )
+
+    # Making the datasets from data/images by default
+
+    images = []
+
+    for file in os.listdir(DATA_DIR):
+        images.append(file)
+
+    print(f"Found {len(images)} images")
+
+    if len(images) == 0:
+        raise ValueError(
+            f"No images found in {images}. Check file naming and structure."
+        )
+    print(
+        f"Using {int(settings.VALUE_SPLIT * len(images))} for training and {len(images) - int(settings.VALUE_SPLIT * len(images))} for validation"
+    )
+    train = images[: int(settings.VALUE_SPLIT * len(images))]
+    valid = images[int(settings.VALUE_SPLIT * len(images)) :]
+
+    train_dataset = ImageDataset(
+        train,
+        data_dir=DATA_DIR,
+        clear_transform=clear_transform,
+        cloud_transform=cloud_transform,
+    )
+
+    valid_dataset = ImageDataset(
+        valid,
+        data_dir=DATA_DIR,
+        clear_transform=clear_transform,
+        cloud_transform=cloud_transform,
+    )
+
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=settings.BATCH_SIZE,
+        num_workers=settings.NUM_WORKERS,
+        shuffle=True,
+        pin_memory=(device.type == "cuda"),
+    )
+    valid_dataloader = DataLoader(
+        valid_dataset,
+        batch_size=settings.BATCH_SIZE,
+        num_workers=settings.NUM_WORKERS,
+        shuffle=True,
+        pin_memory=(device.type == "cuda"),
+    )
+
+    if not os.path.exists(settings.MODEL_SAVE_PATH):
+        os.mkdir(settings.MODEL_SAVE_PATH)
+
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
+    scheduler = optim.lr_scheduler.StepLR(
+        optimizer, step_size=settings.STEP_SIZE, gamma=settings.GAMMA
+    )
+    best_val_loss = float("inf")
+
+    scaler = None
+    if settings.USE_AMP and device.type == "cuda":
+        scaler = torch.amp.GradScaler()
+        print("Using Automatic Mixed Precision (AMP).")
+
+    # training loop
+
+    for epoch in range(num_epochs):
+        epoch_start_time = time.time()
+        model.train()
+        running_loss = 0.0
+        print(f"\n--- Epoch {epoch}/{num_epochs} [Train] ---")
+        batch_start_time = time.time()
+
+        for i, (inputs, targets) in enumerate(train_dataloader):
+            inputs, targets = inputs.to(device), targets.to(device)
+
+            optimizer.zero_grad()
+
+            if scaler:  # AMP
+                with torch.amp.autocast(
+                    device_type="cuda" if torch.cuda.is_available() else "cpu"
+                ):
+                    outputs = model(inputs)
+                    loss = criterion(outputs, targets)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:  # No AMP
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                loss.backward()
+                optimizer.step()
+
+            running_loss += loss.item() * inputs.size(0)
+
+            if (i + 1) % 20 == 0 or (i + 1) == len(train_dataloader):
+                batch_time = time.time() - batch_start_time
+                print(
+                    f"  Batch {i+1}/{len(train_dataloader)} | Train Loss: {loss.item():.4f} | Time: {batch_time:.2f}s"
+                )
+                # for debugging
+                # break
+
+        epoch_train_loss = running_loss / len(train_dataset)
+        print(f"Epoch {epoch+1} [Train] Avg Loss: {epoch_train_loss:.4f}")
+
+        model.eval()
+        running_val_loss = 0.0
+        with torch.no_grad():
+            for inputs, targets in valid_dataloader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                if scaler:  # AMP for validation
+                    with torch.amp.autocast(
+                        device_type="cuda" if torch.cuda.is_available() else "cpu"
+                    ):
+                        outputs = model(inputs)
+                        loss = criterion(outputs, targets)
+                else:
+                    outputs = model(inputs)
+                    loss = criterion(outputs, targets)
+                running_val_loss += loss.item() * inputs.size(0)
+
+        epoch_val_loss = running_val_loss / len(valid_dataset)
+        print(f"Epoch {epoch+1} [Val]   Avg Loss: {epoch_val_loss:.4f}")
+
+        epoch_duration = time.time() - epoch_start_time
+        print(f"Epoch Duration: {epoch_duration:.2f}s")
+
+        if isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau):
+            scheduler.step(epoch_val_loss)
+        elif scheduler is not None:
+            scheduler.step()
+
+        if epoch_val_loss < best_val_loss:
+            best_val_loss = epoch_val_loss
+            model_name = "checkpoint_best.pth"
+            torch.save(
+                model.state_dict(), os.path.join(settings.MODEL_SAVE_PATH, model_name)
+            )
+            print(
+                f"Model improved. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
+            )
+
+        if epoch % settings.EPOCH_SAVE_INTERVAL == 0:
+
+            model_name = f"checkpoint_epoch_{epoch}.pth"
+            torch.save(
+                model.state_dict(), os.path.join(settings.MODEL_SAVE_PATH, model_name)
+            )
+            print(
+                f"Reached a checkpoint. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
+            )
+
+    print("\n--- Training Finished ---")
+    print(f"Best Validation Loss: {best_val_loss:.4f}")
+    print(f"Best model saved at: {settings.MODEL_SAVE_PATH}")
+
+
+if __name__ == "__main__":
+    train_model(DATA_DIR="test/images")

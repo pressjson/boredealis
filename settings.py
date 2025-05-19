@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
 
 IMAGE_SIZE = (608, 608)
-DATA_BASE_DIR = "../data"
 
-NUM_EPOCHS = 500
+NUM_EPOCHS = 50
 
-# transformer hyperparams
+# Hyperparams
 
-EMBED_DIM = 1024
-PATCH_SIZE = 16
-DEPTH = 24
-NUM_HEADS = 16
-MLP_RATIO = 4.0
-DROPOUT = 0.1
-IN_CHANS = 3
+# Probablity that the random transforms *do* get applied
+RANDOM_APPLY_THRESHOLD = 0.95
+NOISE_STRENGTH = 0.1
+# n * data_size for training, (1 - n) * data_size for validation
+VALUE_SPLIT = 0.85
+LEARNING_RATE = 1e-3
+MODEL_SAVE_PATH = "models"
+EPOCH_SAVE_INTERVAL = 1
+STEP_SIZE = 10
+GAMMA = 0.1
+# Transparency upper and lower bounds for the cloud transform
+ALPHA_LOWER_BOUND = 0.3
+ALPHA_UPPER_BOUND = 0.7
+# Tweaking START_FILTERS can crash the GPU, since increasing this dramatically increases VRAM usage
+# This also makes the model more deep, so find a balance
+START_FILTERS = 16
 
-# local settings, for my rx 6800 xt
+# Default settings, optimized for my rx 6800 xt and 7800X3D
 
-NUM_WORKERS = 8
-USE_DATA_PARALLEL = True
-BATCH_SIZE = 32
+NUM_WORKERS = 16
+BATCH_SIZE = 4
+
+PIN_MEMORY = True
+USE_AMP = True
