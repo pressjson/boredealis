@@ -315,6 +315,7 @@ def train_model(
     START_FILTERS=settings.START_FILTERS,
     DATA_DIR=os.path.join("data", "images"),
     num_epochs=settings.NUM_EPOCHS,
+    previous_model_path=None,
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -329,15 +330,6 @@ def train_model(
     print(f"Using device: {device}")
 
     # return 1
-
-    model = DeepUNet(
-        n_channels_in=IMG_CHANNELS_IN,
-        n_classes_out=NUM_CLASSES_OUT,
-        start_filters=START_FILTERS,
-    ).to(device)
-    print(
-        f"Initialized DeepUNet with {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
-    )
 
     # Dataloaders
 
@@ -374,6 +366,7 @@ def train_model(
     print(
         f"Using {int(settings.VALUE_SPLIT * len(images))} for training and {len(images) - int(settings.VALUE_SPLIT * len(images))} for validation"
     )
+    random.shuffle(images)
     train = images[: int(settings.VALUE_SPLIT * len(images))]
     valid = images[int(settings.VALUE_SPLIT * len(images)) :]
 
@@ -409,21 +402,53 @@ def train_model(
     if not os.path.exists(settings.MODEL_SAVE_PATH):
         os.mkdir(settings.MODEL_SAVE_PATH)
 
-    criterion = nn.MSELoss()
+    scaler = None
+    if settings.USE_AMP and device.type == "cuda":
+        scaler = torch.amp.GradScaler()
+        print("Using Automatic Mixed Precision (AMP).")
+
+    start_epoch = 0
+    # training loop
+
+    model = DeepUNet(
+        n_channels_in=IMG_CHANNELS_IN,
+        n_classes_out=NUM_CLASSES_OUT,
+        start_filters=START_FILTERS,
+    ).to(device)
+    if previous_model_path == None:
+        print(
+            f"Initialized DeepUNet with {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
+        )
+    else:
+        if not os.path.exists(previous_model_path):
+            raise ValueError(
+                f"Error: {previous_model_path} is not a valid path to a previous model."
+            )
+            return -1
+        checkpoint = torch.load(previous_model_path)
+        start_filters = checkpoint["start_filters"]
+        in_channels = checkpoint["in_channels"]
+        out_channels = checkpoint["out_channels"]
+        start_epoch = checkpoint["epoch"]
+        model = DeepUNet(
+            n_channels_in=in_channels,
+            n_classes_out=out_channels,
+            start_filters=start_filters,
+        )
+        model.load_state_dict(checkpoint["model_state_dict"])
+        print(
+            f"Loading model from {previous_model_path} with {in_channels} channels in, {out_channels} classes out, and {start_filters} start filters."
+        )
+        model = model.to(device)
+
+    criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
     scheduler = optim.lr_scheduler.StepLR(
         optimizer, step_size=settings.STEP_SIZE, gamma=settings.GAMMA
     )
     best_val_loss = float("inf")
 
-    scaler = None
-    if settings.USE_AMP and device.type == "cuda":
-        scaler = torch.amp.GradScaler()
-        print("Using Automatic Mixed Precision (AMP).")
-
-    # training loop
-
-    for epoch in range(num_epochs):
+    for epoch in range(start_epoch, num_epochs):
         epoch_start_time = time.time()
         model.train()
         running_loss = 0.0
@@ -433,6 +458,7 @@ def train_model(
         for i, (inputs, targets) in enumerate(train_dataloader):
             inputs, targets = inputs.to(device), targets.to(device)
 
+            # print(inputs.shape)
             optimizer.zero_grad()
 
             if scaler:  # AMP
@@ -468,6 +494,7 @@ def train_model(
         with torch.no_grad():
             for inputs, targets in valid_dataloader:
                 inputs, targets = inputs.to(device), targets.to(device)
+
                 if scaler:  # AMP for validation
                     with torch.amp.autocast(
                         device_type="cuda" if torch.cuda.is_available() else "cpu"
@@ -494,7 +521,14 @@ def train_model(
             best_val_loss = epoch_val_loss
             model_name = "checkpoint_best.pth"
             torch.save(
-                model.state_dict(), os.path.join(settings.MODEL_SAVE_PATH, model_name)
+                {
+                    "model_state_dict": model.state_dict(),
+                    "start_filters": START_FILTERS,
+                    "in_channels": IMG_CHANNELS_IN,
+                    "out_channels": NUM_CLASSES_OUT,
+                    "epoch": epoch,
+                },
+                os.path.join(settings.MODEL_SAVE_PATH, model_name),
             )
             print(
                 f"Model improved. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
@@ -504,7 +538,14 @@ def train_model(
 
             model_name = f"checkpoint_epoch_{epoch}.pth"
             torch.save(
-                model.state_dict(), os.path.join(settings.MODEL_SAVE_PATH, model_name)
+                {
+                    "model_state_dict": model.state_dict(),
+                    "start_filters": START_FILTERS,
+                    "in_channels": IMG_CHANNELS_IN,
+                    "out_channels": NUM_CLASSES_OUT,
+                    "epoch": epoch,
+                },
+                os.path.join(settings.MODEL_SAVE_PATH, model_name),
             )
             print(
                 f"Reached a checkpoint. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
@@ -516,4 +557,6 @@ def train_model(
 
 
 if __name__ == "__main__":
-    train_model(DATA_DIR="test/images")
+    train_model(
+        DATA_DIR="test/images", previous_model_path="models/checkpoint_best.pth"
+    )
