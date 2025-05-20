@@ -41,8 +41,10 @@ def test(
         output_tensor = model(input_tensor)
 
     output_tensor = output_tensor.squeeze(0)
-
-    output_image = FU.to_pil_image(output_tensor)
+    # without denormalizing
+    # output_image = FU.to_pil_image(output_tensor)
+    # with denormalizing
+    output_image = FU.to_pil_image(output_tensor * 0.5 + 0.5)
 
     return output_image
 

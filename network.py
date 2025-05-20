@@ -337,6 +337,7 @@ def train_model(
         [
             transforms.Resize(settings.IMAGE_SIZE),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5]),
         ]
     )
     cloud_transform = transforms.Compose(
@@ -347,6 +348,7 @@ def train_model(
                 settings.RANDOM_APPLY_THRESHOLD,
                 settings.NOISE_STRENGTH,
             ),
+            transforms.Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5]),
         ]
     )
 
