@@ -337,7 +337,7 @@ def train_model(
         [
             transforms.Resize(settings.IMAGE_SIZE),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5]),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
     cloud_transform = transforms.Compose(
@@ -348,7 +348,7 @@ def train_model(
                 settings.RANDOM_APPLY_THRESHOLD,
                 settings.NOISE_STRENGTH,
             ),
-            transforms.Normalize(mean=[0.5,0.5,0.5], std=[0.5,0.5,0.5]),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
 
@@ -445,8 +445,11 @@ def train_model(
 
     criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
-    scheduler = optim.lr_scheduler.StepLR(
-        optimizer, step_size=settings.STEP_SIZE, gamma=settings.GAMMA
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        patience=settings.STEP_SIZE,
+        factor=settings.GAMMA,
+        mode="min",
     )
     best_val_loss = float("inf")
 
@@ -470,12 +473,14 @@ def train_model(
                     outputs = model(inputs)
                     loss = criterion(outputs, targets)
                 scaler.scale(loss).backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
             else:  # No AMP
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
 
             running_loss += loss.item() * inputs.size(0)
@@ -553,6 +558,9 @@ def train_model(
                 f"Reached a checkpoint. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
             )
 
+        print("Sleeping, hopefully to prevent vram overusage")
+        time.sleep(1)
+
     print("\n--- Training Finished ---")
     print(f"Best Validation Loss: {best_val_loss:.4f}")
     print(f"Best model saved at: {settings.MODEL_SAVE_PATH}")
@@ -560,5 +568,6 @@ def train_model(
 
 if __name__ == "__main__":
     train_model(
-        DATA_DIR="test/images", previous_model_path="models/checkpoint_best.pth"
+        DATA_DIR="test/images",
+        # previous_model_path="models/checkpoint_best.pth"
     )

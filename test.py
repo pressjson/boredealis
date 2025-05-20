@@ -24,8 +24,9 @@ def test(
         # settings.START_FILTERS,
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    checkpoint = torch.load(model_load_path)
 
-    model.load_state_dict(torch.load(model_load_path))
+    model.load_state_dict(checkpoint["model_state_dict"])
     model = model.to(device)
 
     model.eval()
