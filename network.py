@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
 import torch.nn.functional as F  # Needed for GELU in TransformerEncoderLayer
-import torchvision.transforms.functional as FU
+import torchvision.transforms.functional as TF
 import torch.optim as optim
 from torchvision import transforms
 from PIL import Image
@@ -151,11 +151,11 @@ class RandomApplyTransforms:
 
         if random.uniform(0, 1) > self.random_threshold:
             # do nothing
-            return FU.to_tensor(sample)
+            return TF.to_tensor(sample)
 
         cloud = CombineWithClouds(self.output_size)
         sample = cloud(sample)
-        sample = FU.to_tensor(sample)
+        sample = TF.to_tensor(sample)
         noise = torch.rand_like(sample) * self.noise_weight
         sample = sample + noise
         sample = torch.clamp(sample, 0.0, 1.0)
@@ -337,7 +337,7 @@ def train_model(
         [
             transforms.Resize(settings.IMAGE_SIZE),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
     cloud_transform = transforms.Compose(
@@ -348,7 +348,7 @@ def train_model(
                 settings.RANDOM_APPLY_THRESHOLD,
                 settings.NOISE_STRENGTH,
             ),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
 
@@ -443,6 +443,12 @@ def train_model(
         )
         model = model.to(device)
 
+    if torch.cuda.is_available() and torch.cuda.device_count() > 2:
+        print(
+            f"Wrapping model with nn.DataParallel for {torch.cuda.device_count()} GPUs."
+        )
+        model = nn.DataParallel(model)
+
     criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -463,7 +469,9 @@ def train_model(
         for i, (inputs, targets) in enumerate(train_dataloader):
             inputs, targets = inputs.to(device), targets.to(device)
 
-            # print(inputs.shape)
+            # show_tensor_image(inputs[0])
+            # show_tensor_image(targets[0])
+            # break
             optimizer.zero_grad()
 
             if scaler:  # AMP
@@ -501,6 +509,9 @@ def train_model(
         with torch.no_grad():
             for inputs, targets in valid_dataloader:
                 inputs, targets = inputs.to(device), targets.to(device)
+                # show_tensor_image(inputs[0])
+                # show_tensor_image(targets[0])
+                # break
 
                 if scaler:  # AMP for validation
                     with torch.amp.autocast(
@@ -564,6 +575,12 @@ def train_model(
     print("\n--- Training Finished ---")
     print(f"Best Validation Loss: {best_val_loss:.4f}")
     print(f"Best model saved at: {settings.MODEL_SAVE_PATH}")
+
+
+def show_tensor_image(tensor):
+    image = tensor.detach().cpu()
+    image = TF.to_pil_image(image)
+    image.show()
 
 
 if __name__ == "__main__":
