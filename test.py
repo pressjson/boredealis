@@ -20,13 +20,13 @@ def test(
     model = network.DeepUNet(
         3,
         3,
-        32,
+        128,
         # settings.START_FILTERS,
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    checkpoint = torch.load(model_load_path)
+    # checkpoint = torch.load(model_load_path)
 
-    model.load_state_dict(checkpoint["model_state_dict"])
+    # model.load_state_dict(checkpoint["model_state_dict"])
     model = model.to(device)
 
     model.eval()

@@ -21,12 +21,13 @@ ALPHA_LOWER_BOUND = 0.1
 ALPHA_UPPER_BOUND = 0.8
 # Tweaking START_FILTERS can crash the GPU, since increasing this dramatically increases VRAM usage
 # This also makes the model more deep, so find a balance
-START_FILTERS = 128
+START_FILTERS = 32
 
-# Default settings, optimized for my rx 6800 xt and 7800X3D
+# Default settings, optimized for my RX 6800 XT and 7800X3D
+# The batch size is so small because the images are large. It quickly overwhelms my GPU
 
 NUM_WORKERS = 16
-BATCH_SIZE = 4
+BATCH_SIZE = 2
 
 PIN_MEMORY = True
 USE_AMP = True
