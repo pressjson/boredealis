@@ -569,8 +569,10 @@ def train_model(
                 f"Reached a checkpoint. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
             )
 
-        print("Sleeping, hopefully to prevent vram overusage")
-        time.sleep(1)
+        # This actually worked on my RX 6800 XT, although it was because it cooled down the GPU,
+        # not because of VRAM usage
+        # print("Sleeping, hopefully to prevent vram overusage")
+        # time.sleep(1)
 
     print("\n--- Training Finished ---")
     print(f"Best Validation Loss: {best_val_loss:.4f}")
