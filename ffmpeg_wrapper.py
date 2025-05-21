@@ -3,6 +3,7 @@
 import os
 import ffmpeg
 import re
+import time
 
 
 def convert_to_images(input, output_path, output_name="output"):
@@ -17,7 +18,7 @@ def convert_to_images(input, output_path, output_name="output"):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     ffmpeg.input(input).output(
-        os.path.join(output_path, output_name + "_%04d.png")
+        os.path.join(output_path, output_name + "_%04d.jpg")  # Use jpg for training
     ).run()
 
 
@@ -36,15 +37,28 @@ def split_filename(filename):
 
 
 def convert_directory(input_dir, output_dir):
+    start_time = time.time()
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    dir_size = len(
+        [
+            name
+            for name in os.listdir("data/videos")
+            if os.path.isfile(os.path.join("data/videos", name))
+        ]
+    )
+    i = 0
     for file in os.listdir(input_dir):
+
         base, ext = split_filename(file)
         print(
-            f"Converting {input_dir}/{base}{ext}"
+            f"Converting {input_dir}/{base}{ext} ({i}/{dir_size})"
         )  # Instead of {file} because I want to see the regex work
         convert_to_images(os.path.join(input_dir, file), output_dir, output_name=base)
+        i = i + 1
+
+    print(f"Done converting {dir_size} files in {time.time()-start_time:.2f}s.")
 
 
 if __name__ == "__main__":
