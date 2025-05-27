@@ -8,7 +8,7 @@ import torch.nn.functional as F  # Needed for GELU in TransformerEncoderLayer
 import torchvision.transforms.functional as TF
 import torch.optim as optim
 from torchvision import transforms
-from PIL import Image
+from PIL import Image, ImageDraw
 import noise
 import numpy
 import time
@@ -103,6 +103,53 @@ def generate_perlin_noise_image(
     return Image.fromarray(pixels)
 
 
+def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
+    """
+    Takes a PIL image of 608x608 and keeps only a center circle
+    with a radius of 250 pixels. The area outside the circle
+    will be made transparent.
+
+    Args:
+        pil_image (PIL.Image.Image): The input image, must be 608x608.
+
+    Returns:
+        PIL.Image.Image: A new image with the circular crop applied.
+                         The image will be in RGBA format.
+    """
+
+    radius = 250
+    width, height = pil_image.size  # Should be 608, 608
+
+    # Ensure the image has an alpha channel for transparency
+    img_rgba = pil_image.convert("RGBA")
+
+    # Create a mask:
+    # Start with a completely black (transparent) mask
+    mask = Image.new("L", (width, height), 0)  # 'L' mode for grayscale mask
+    draw = ImageDraw.Draw(mask)
+
+    # Calculate the bounding box for the circle
+    # The center of the image is (width/2, height/2)
+    center_x = width // 2
+    center_y = height // 2
+
+    # Bounding box coordinates (left, top, right, bottom)
+    left = center_x - radius
+    top = center_y - radius
+    right = center_x + radius
+    bottom = center_y + radius
+
+    # Draw a white (opaque) circle on the black mask
+    draw.ellipse((left, top, right, bottom), fill=255)  # 255 is white in 'L' mode
+
+    # Apply the mask to the image
+    # The 'mask' argument in putalpha uses the 'L' mode mask
+    # to set the alpha channel of the RGBA image.
+    img_rgba.putalpha(mask)
+
+    return img_rgba
+
+
 class CombineWithClouds:
     def __init__(self, output_size):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -115,10 +162,12 @@ class CombineWithClouds:
         #     main_image = FU.to_pil_image(main_image)
 
         # @TODO: when there is a file of cloud hex values, randomly pick two hex values and make them tuples
+        main_image = main_image.convert("RGBA")
         lower = random.randint(0, 130)
         upper = random.randint(150, 255)
         lower_bound = (lower, lower, lower)
         upper_bound = (upper, upper, upper)
+        # print(f"Main image: {main_image}")
 
         alpha_lower_bound = settings.ALPHA_LOWER_BOUND
         alpha_upper_bound = settings.ALPHA_UPPER_BOUND
@@ -126,14 +175,25 @@ class CombineWithClouds:
         fake_clouds = generate_perlin_noise_image(
             settings.IMAGE_SIZE[0], lower_bound=lower_bound, upper_bound=upper_bound
         )
+        # print(f"Fake clouds: {fake_clouds}")
 
-        combined_image = Image.blend(
-            main_image,
-            fake_clouds,
-            random.uniform(alpha_lower_bound, alpha_upper_bound),
-        )
+        cropped_clouds = crop_to_center_circle(fake_clouds)
+        # print(f"Cropped clouds: {cropped_clouds}")
 
-        return combined_image
+        # combined_image = Image.blend(
+        #     main_image,
+        #     cropped_clouds,
+        #     random.uniform(alpha_lower_bound, alpha_upper_bound),
+        # )
+        r, g, b, alpha = cropped_clouds.split()
+        blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
+
+        final_alpha = alpha.point(lambda p: int(p * blend_strength))
+        cloud_layer = Image.merge("RGBA", (r, g, b, final_alpha))
+
+        combined_image = Image.alpha_composite(main_image, cloud_layer)
+
+        return combined_image.convert("RGB")
 
 
 # google gemini
@@ -156,6 +216,7 @@ class RandomApplyTransforms:
             return TF.to_tensor(sample)
 
         cloud = CombineWithClouds(self.output_size)
+
         sample = cloud(sample)
         sample = TF.to_tensor(sample)
         noise = torch.rand_like(sample) * self.noise_weight
@@ -277,17 +338,17 @@ class DeepUNet(nn.Module):
         )  # 304->608
 
         self.outc = OutConv(start_filters, n_classes_out)
-        self.final_activation = nn.Sigmoid()
+        self.final_activation = nn.Tanh()
 
-        # Determine final activation
-        if n_classes_out == 1:
-            self.final_activation = nn.Sigmoid()
-        elif n_classes_out > 1:
-            self.final_activation = nn.Softmax(
-                dim=1
-            )  # Apply softmax over channel dimension
-        else:  # Should not happen with positive n_classes_out
-            self.final_activation = None  # Linear activation
+        # # Determine final activation
+        # if n_classes_out == 1:
+        #     self.final_activation = nn.Sigmoid()
+        # elif n_classes_out > 1:
+        #     self.final_activation = nn.Softmax(
+        #         dim=1
+        #     )  # Apply softmax over channel dimension
+        # else:  # Should not happen with positive n_classes_out
+        #     self.final_activation = None  # Linear activation
 
     def forward(self, x):
         # Encoder
@@ -456,11 +517,30 @@ def train_model(
             n_classes_out=out_channels,
             start_filters=start_filters,
         )
-        model.load_state_dict(checkpoint["model_state_dict"])
+        loaded_state_dict = checkpoint["model_state_dict"]
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        is_data_parallel = False
+        for k, v in loaded_state_dict.items():
+            if k.startswith('module.'):
+                is_data_parallel = True
+                name = k[7:]  # remove `module.`
+                new_state_dict[name] = v
+            else:
+                new_state_dict[k] = v # Non-DataParallel checkpoint or already stripped
+
+        if is_data_parallel:
+            print("Checkpoint was saved from a DataParallel model. Stripping 'module.' prefix.")
+
+        model.load_state_dict(new_state_dict)
+
+
+        # model.load_state_dict(checkpoint["model_state_dict"])
         print(
             f"Loading model from {previous_model_path} with {in_channels} channels in, {out_channels} classes out, and {start_filters} start filters."
         )
-        model = model.to(device)
+
+    model = model.to(device)
 
     if torch.cuda.is_available() and torch.cuda.device_count() > 2:
         print(
@@ -487,6 +567,16 @@ def train_model(
 
         for i, (inputs, targets) in enumerate(train_dataloader):
             inputs, targets = inputs.to(device), targets.to(device)
+            # print("Visualizing a sample from training data...")
+            # sample_inputs, sample_targets = next(iter(train_dataloader))
+            # # output_tensor * 0.5 + 0.5
+            # show_tensor_image(
+            #     (sample_inputs[0] * 0.5 + 0.5).cpu()
+            # )  # Show first cloudy image in batch
+            # show_tensor_image(
+            #     (sample_targets[0] * 0.5 + 0.5).cpu()
+            # )  # Show first clear image in batch
+            # return -1
 
             # show_tensor_image(inputs[0])
             # show_tensor_image(targets[0])
@@ -610,5 +700,5 @@ def show_tensor_image(tensor):
 if __name__ == "__main__":
     train_model(
         DATA_DIR="data/png_images",
-        # previous_model_path="models/checkpoint_best.pth"
+        previous_model_path="models/checkpoint_best.pth"
     )
