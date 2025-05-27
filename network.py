@@ -275,6 +275,7 @@ class DeepUNet(nn.Module):
         )  # 304->608
 
         self.outc = OutConv(start_filters, n_classes_out)
+        self.final_activation = nn.Sigmoid()
 
         # Determine final activation
         if n_classes_out == 1:
@@ -400,6 +401,12 @@ def train_model(
         shuffle=True,
         pin_memory=(device.type == "cuda"),
     )
+
+    print("Visualizing a sample from training data...")
+    sample_inputs, sample_targets = next(iter(train_dataloader))
+    show_tensor_image(sample_inputs[0].cpu())  # Show first cloudy image in batch
+    show_tensor_image(sample_targets[0].cpu())  # Show first clear image in batch
+    return -1
 
     if not os.path.exists(settings.MODEL_SAVE_PATH):
         os.mkdir(settings.MODEL_SAVE_PATH)
@@ -534,6 +541,9 @@ def train_model(
             scheduler.step(epoch_val_loss)
         elif scheduler is not None:
             scheduler.step()
+
+        current_lr = optimizer.param_groups[0]["lr"]
+        print(f"Current Learning Rate: {current_lr}")
 
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
