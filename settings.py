@@ -6,6 +6,8 @@ NUM_EPOCHS = 100
 
 # Hyperparams
 
+# Uses the first n images in the dataset. Set to -1 to use the whole dataset
+NUM_IMAGES = -1
 # Probablity that the random transforms *do* get applied
 RANDOM_APPLY_THRESHOLD = 0.5
 NOISE_STRENGTH = 0

@@ -359,8 +359,13 @@ def train_model(
 
     images = []
 
+    i = settings.NUM_IMAGES
     for file in os.listdir(DATA_DIR):
         images.append(file)
+        if i != -1:
+            i = i - 1
+            if i == 0:
+                break
 
     print(f"Found {len(images)} images")
 
