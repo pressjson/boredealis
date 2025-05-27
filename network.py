@@ -53,8 +53,8 @@ def generate_perlin_noise_image(
     size,
     lower_bound,
     upper_bound,
-    scale=50.0,
-    octaves=4,
+    scale=random.uniform(20.0, 100.0),
+    octaves=random.randint(2, 8),
     persistence=0.5,
     lacunarity=2.0,
 ):
@@ -115,8 +115,10 @@ class CombineWithClouds:
         #     main_image = FU.to_pil_image(main_image)
 
         # @TODO: when there is a file of cloud hex values, randomly pick two hex values and make them tuples
-        lower_bound = (0, 0, 0)
-        upper_bound = (255, 255, 255)
+        lower = random.randint(0, 130)
+        upper = random.randint(150, 255)
+        lower_bound = (lower, lower, lower)
+        upper_bound = (upper, upper, upper)
 
         alpha_lower_bound = settings.ALPHA_LOWER_BOUND
         alpha_upper_bound = settings.ALPHA_UPPER_BOUND
@@ -338,7 +340,7 @@ def train_model(
         [
             transforms.Resize(settings.IMAGE_SIZE),
             transforms.ToTensor(),
-            # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
     cloud_transform = transforms.Compose(
@@ -349,7 +351,7 @@ def train_model(
                 settings.RANDOM_APPLY_THRESHOLD,
                 settings.NOISE_STRENGTH,
             ),
-            # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ]
     )
 
@@ -402,11 +404,16 @@ def train_model(
         pin_memory=(device.type == "cuda"),
     )
 
-    print("Visualizing a sample from training data...")
-    sample_inputs, sample_targets = next(iter(train_dataloader))
-    show_tensor_image(sample_inputs[0].cpu())  # Show first cloudy image in batch
-    show_tensor_image(sample_targets[0].cpu())  # Show first clear image in batch
-    return -1
+    # print("Visualizing a sample from training data...")
+    # sample_inputs, sample_targets = next(iter(train_dataloader))
+    # # output_tensor * 0.5 + 0.5
+    # show_tensor_image(
+    #     (sample_inputs[0] * 0.5 + 0.5).cpu()
+    # )  # Show first cloudy image in batch
+    # show_tensor_image(
+    #     (sample_targets[0] * 0.5 + 0.5).cpu()
+    # )  # Show first clear image in batch
+    # return -1
 
     if not os.path.exists(settings.MODEL_SAVE_PATH):
         os.mkdir(settings.MODEL_SAVE_PATH)
@@ -597,6 +604,6 @@ def show_tensor_image(tensor):
 
 if __name__ == "__main__":
     train_model(
-        DATA_DIR="data/images",
+        DATA_DIR="data/png_images",
         # previous_model_path="models/checkpoint_best.pth"
     )
