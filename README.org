@@ -45,13 +45,13 @@ Here is the result of passing Randii through a model trained after 4 epochs, wit
 
 Pretty good, right? How about some "actual" cloudy images?
 
-@TODO: Show some results with actual images with clouds and whatnot.
+@TODO: show some results with actual images with clouds and whatnot.
 
 * FAQ
 
 ** Where can I get some model weights?
 
-@TODO: Make the weights available. Somehow. Perhaps as a GitHub release? I don't know–I mean I need to do more research.
+@TODO: make the weights available. Somehow. Perhaps as a GitHub release? I don't know–I mean I need to do more research.
 
 ** How do I install it?
 
@@ -64,7 +64,8 @@ Pretty good, right? How about some "actual" cloudy images?
 
 For now, pass the image into ~test.py~ as a custom argument, i.e. ~test(image_path="path/to/image")~ inside a python interpreter, or edit the file to include your custom path. I'm sorry there is no good way to do this
 
-@TODO: Add an interactive menu.
+@TODO: add an interactive menu.
+
 @TODO: the CLI.
 
 ** How do I make local settings? Why does a warning about no local settings keep appearing?
@@ -72,6 +73,10 @@ For now, pass the image into ~test.py~ as a custom argument, i.e. ~test(image_pa
 Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not change the image size. This should fix the warnings from appearing.
 
 @FIXME: seeing the warning for no local settings found appearing twice when running ~test.py~. I do not care to fix this. (It's as simple as removing the warning statement from ~test.py~, relying only on the statement when it imports ~network.py~).
+
+@FIXME: there is no default model. As such, ~test.py~ will not work.
+
+@TODO: add a default model such that ~test.py~ works. Unfortunately, I can not put it in the repository by default, so it has to be a part of the releases. Plus, with the test folder, this repo is already too large.
 
 ** It doesn't work!
 
