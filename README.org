@@ -49,22 +49,18 @@ Pretty good, right? How about some "actual" cloudy images?
 
 * FAQ
 
-Where can I get some model weights?
+** Where can I get some model weights?
 
 @TODO: Make the weights available. Somehow. Perhaps as a GitHub release? I don't know–I mean I need to do more research.
 
----
-
-How do I install it?
+** How do I install it?
 
 1. ~python3 -m venv venv~ to make a virtual enviornment inside the project directory.
 2. ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages systemwide (I recommend this).
 3. ~pip install -r requirements.txt~ to install the requirements in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual enviornment, install torch and torchvision /first/, and then install the requirements.
 4. Have fun!
 
----
-
-How do I use custom images rather than the default ones?
+** How do I use custom images rather than the default ones?
 
 For now, pass the image into ~test.py~ as a custom argument ~test(image_path="path/to/image")~, or edit the file to include your custom path.
 
