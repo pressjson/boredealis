@@ -11,18 +11,26 @@ So vision transformers are meant for image classification. Time to learn a new t
 1. Go from videos to images
    - FFmpeg can do this: ~ffmpeg -i input.avi output_%3d.png~
    - Done (for now)
-2. Get all of the data of clear skies, put them in a train directory, and prepare the images for training
-3. Model to train
+2. Get all of the data of clear skies, put them in a train directory, and prepare the images for training (done?)
+3. Model to train (done)
    - Includes two transforms in the dataloader:
      - one for clear data (i.e. it's unmodified) (done?), and
      - one for clouds (i.e. it's faking clouds over the same image) (Randy) (done)
-4. A script to take a video, make it a bunch of images, then chunks(?), then enhance, then reverse the process
-5. A . . . GUI?
+4. A script to take a video, make it a bunch of images (done), then chunks(?), then enhance (done), then reverse the process (not done)
+5. A . . . GUI? How about a CLI?
 
-* Randy
+The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
+
+* Randy and Randii
 
 Randy is the official mascot of this build. Randy is the result of synthetic clouds and noise. Why is he named Randy? Because I am starting to go crazy.
 
 #+CAPTION: Randy
 #+NAME: Randy
 [[./Randy.png]]
+
+Unfortunately, Randy was not up to the task for training the model, as Randy has the issue of covering the whole image. Thus, Randy's wife, Randii, stepped in to fill the gap. Why is she named Randii? I think you can figure it out.
+
+#_CAPTION: Randii
+#+NAME: Randii
+[[./Randii.png]]

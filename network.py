@@ -211,9 +211,9 @@ class RandomApplyTransforms:
         # for debugging why my computer crashes
         # return FU.to_tensor(sample)
 
-        if random.uniform(0, 1) > self.random_threshold:
-            # do nothing
-            return TF.to_tensor(sample)
+        # if random.uniform(0, 1) > self.random_threshold:
+        #     # do nothing
+        #     return TF.to_tensor(sample)
 
         cloud = CombineWithClouds(self.output_size)
 
@@ -470,16 +470,16 @@ def train_model(
         pin_memory=(device.type == "cuda"),
     )
 
-    # print("Visualizing a sample from training data...")
-    # sample_inputs, sample_targets = next(iter(train_dataloader))
-    # # output_tensor * 0.5 + 0.5
-    # show_tensor_image(
-    #     (sample_inputs[0] * 0.5 + 0.5).cpu()
-    # )  # Show first cloudy image in batch
-    # show_tensor_image(
-    #     (sample_targets[0] * 0.5 + 0.5).cpu()
-    # )  # Show first clear image in batch
-    # return -1
+    print("Visualizing a sample from training data...")
+    sample_inputs, sample_targets = next(iter(train_dataloader))
+    # output_tensor * 0.5 + 0.5
+    show_tensor_image(
+        (sample_inputs[0] * 0.5 + 0.5).cpu()
+    )  # Show first cloudy image in batch
+    show_tensor_image(
+        (sample_targets[0] * 0.5 + 0.5).cpu()
+    )  # Show first clear image in batch
+    return -1
 
     if not os.path.exists(settings.MODEL_SAVE_PATH):
         os.mkdir(settings.MODEL_SAVE_PATH)
@@ -519,21 +519,23 @@ def train_model(
         )
         loaded_state_dict = checkpoint["model_state_dict"]
         from collections import OrderedDict
+
         new_state_dict = OrderedDict()
         is_data_parallel = False
         for k, v in loaded_state_dict.items():
-            if k.startswith('module.'):
+            if k.startswith("module."):
                 is_data_parallel = True
                 name = k[7:]  # remove `module.`
                 new_state_dict[name] = v
             else:
-                new_state_dict[k] = v # Non-DataParallel checkpoint or already stripped
+                new_state_dict[k] = v  # Non-DataParallel checkpoint or already stripped
 
         if is_data_parallel:
-            print("Checkpoint was saved from a DataParallel model. Stripping 'module.' prefix.")
+            print(
+                "Checkpoint was saved from a DataParallel model. Stripping 'module.' prefix."
+            )
 
         model.load_state_dict(new_state_dict)
-
 
         # model.load_state_dict(checkpoint["model_state_dict"])
         print(
@@ -699,6 +701,5 @@ def show_tensor_image(tensor):
 
 if __name__ == "__main__":
     train_model(
-        DATA_DIR="data/png_images",
-        previous_model_path="models/checkpoint_best.pth"
+        DATA_DIR="data/png_images", previous_model_path="models/checkpoint_best.pth"
     )
