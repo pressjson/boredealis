@@ -31,6 +31,6 @@ Randy is the official mascot of this build. Randy is the result of synthetic clo
 
 Unfortunately, Randy was not up to the task for training the model, as Randy has the issue of covering the whole image. Thus, Randy's wife, Randii, stepped in to fill the gap. Why is she named Randii? I think you can figure it out.
 
-#_CAPTION: Randii
+#+CAPTION: Randii
 #+NAME: Randii
 [[./Randii.png]]
