@@ -9,7 +9,6 @@ networkx
 noise
 numpy
 pillow
-pytorch-triton-rocm
 setuptools
 sympy
 torch

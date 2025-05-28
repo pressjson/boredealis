@@ -57,7 +57,9 @@ else:
 
 def test(
     # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
-    image_path="clouds.png",
+    image_path="Randii.png",
+    # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
+
     model_load_path=os.path.join("models", "checkpoint_best.pth"),
     image_size_trained=settings.IMAGE_SIZE,
     # image_size_trained=(608, 608),

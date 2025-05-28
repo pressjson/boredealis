@@ -17,13 +17,13 @@ So vision transformers are meant for image classification. Time to learn a new t
      - one for clear data (i.e. it's unmodified) (done?), and
      - one for clouds (i.e. it's faking clouds over the same image) (Randy) (done)
 4. A script to take a video, make it a bunch of images (done), then chunks(?), then enhance (done), then reverse the process (not done)
-5. A . . . GUI? How about a CLI?
+5. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
 
 The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
 * Randy and Randii
 
-Randy is the official mascot of this build. Randy is the result of synthetic clouds and noise. Why is he named Randy? Because I am starting to go crazy.
+Randy is the official mascot of this project. Randy is the result of synthetic clouds and noise. Why is he named Randy? Because I am starting to go crazy.
 
 #+CAPTION: Randy
 #+NAME: Randy
@@ -34,3 +34,38 @@ Unfortunately, Randy was not up to the task for training the model, as Randy has
 #+CAPTION: Randii
 #+NAME: Randii
 [[./Randii.png]]
+
+* Results
+
+Here is the result of passing Randii through a model trained after 4 epochs, with a validation loss of 0.0116:
+
+#+CAPTION: Synthetic image declouded with a model trained after 4 epochs
+#+NAME: Randii declouded
+[[./Randii declouded by Epoch 4.png]]
+
+Pretty good, right? How about some "actual" cloudy images?
+
+@TODO: Show some results with actual images with clouds and whatnot.
+
+* FAQ
+
+Where can I get some model weights?
+
+@TODO: Make the weights available. Somehow. Perhaps as a GitHub release? I don't know–I mean I need to do more research.
+
+---
+
+How do I install it?
+
+1. ~python3 -m venv venv~ to make a virtual enviornment inside the project directory.
+2. ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages systemwide (I recommend this).
+3. ~pip install -r requirements.txt~ to install the requirements in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual enviornment, install torch and torchvision /first/, and then install the requirements.
+4. Have fun!
+
+---
+
+How do I use custom images rather than the default ones?
+
+For now, pass the image into ~test.py~ as a custom argument ~test(image_path="path/to/image")~, or edit the file to include your custom path.
+
+@TODO: Add an interactive menu, to do in the CLI.
