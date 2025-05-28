@@ -55,13 +55,26 @@ Pretty good, right? How about some "actual" cloudy images?
 
 ** How do I install it?
 
-1. ~python3 -m venv venv~ to make a virtual enviornment inside the project directory.
-2. ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages systemwide (I recommend this).
-3. ~pip install -r requirements.txt~ to install the requirements in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual enviornment, install torch and torchvision /first/, and then install the requirements.
+1. ~python3 -m venv venv~ to make a virtual environment inside the project directory.
+2. ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages systemwide (I do not recommend this, as I am a big fan of virtual enviornments and reproducibility).
+3. ~pip install -r requirements.txt~ to install the requirements in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/, and then install the requirements.
 4. Have fun!
 
 ** How do I use custom images rather than the default ones?
 
-For now, pass the image into ~test.py~ as a custom argument ~test(image_path="path/to/image")~, or edit the file to include your custom path.
+For now, pass the image into ~test.py~ as a custom argument, i.e. ~test(image_path="path/to/image")~ inside a python interpreter, or edit the file to include your custom path. I'm sorry there is no good way to do this
 
-@TODO: Add an interactive menu, to do in the CLI.
+@TODO: Add an interactive menu.
+@TODO: the CLI.
+
+** How do I make local settings? Why does a warning about no local settings keep appearing?
+
+Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not change the image size. This should fix the warnings from appearing.
+
+@FIXME: seeing the warning for no local settings found appearing twice when running ~test.py~. I do not care to fix this. (It's as simple as removing the warning statement from ~test.py~, relying only on the statement when it imports ~network.py~).
+
+** It doesn't work!
+
+Are you in the virtual environment?
+Did you change something?
+Are you suffering from a skill issue?
