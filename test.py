@@ -8,7 +8,8 @@ from PIL import Image
 import torchvision.transforms as T
 
 if not os.path.exists("local_settings.py"):
-    print("Warning: local settings not found. Using default settings.")
+    # print("Warning: local settings not found. Using default settings.")
+    # Not needed, because the message already displayed with ~import network~
     import settings
 else:
     import local_settings as settings
@@ -52,18 +53,27 @@ else:
 
 
 # generated from google gemini 2.5 pro based off my code
-# that llm is actually genius
+# that llm is actually smart
 
 
 def test(
     # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
-    image_path="Randii.png",
+    image_path=os.path.join("readme_images", "Randii.png"),
     # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
-
     model_load_path=os.path.join("models", "checkpoint_best.pth"),
     image_size_trained=settings.IMAGE_SIZE,
-    # image_size_trained=(608, 608),
-):
+) -> Image.Image:
+    """Tests the model and returns a PIL Image.
+
+    Args:
+        image_path (str): Path to the image to be converted.
+        model_load_path (str): Path to the model to be loaded.
+        image_size_trained (str): Should not be touched.
+
+    Returns:
+        PIL.Image.Image if successful.
+        -1 if something went wrong.
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 

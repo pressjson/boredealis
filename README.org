@@ -28,33 +28,51 @@ Randy is the official mascot of this project. Randy is the result of synthetic c
 
 #+CAPTION: Randy
 #+NAME: Randy
-[[./Randy.png]]
+[[./readme_images/Randy.png]]
 
 Unfortunately, Randy was not up to the task for training the model, as Randy has the issue of covering the whole image. Thus, Randy's wife, Randii, stepped in to fill the gap. Why is she named Randii? I think you can figure it out.
 
 #+CAPTION: Randii
 #+NAME: Randii
-[[./Randii.png]]
+[[./readme_images/Randii.png]]
 
-* Results
+* Results on still images
+
+** With synthetic clouds
 
 Here is the result of passing Randii through a model trained after 4 epochs, with a validation loss of 0.0116:
 
 #+CAPTION: Synthetic image declouded with a model trained after 4 epochs
 #+NAME: Randii declouded
-[[./Randii declouded by Epoch 4.png]]
+[[./readme_images/Randii declouded by Epoch 4.png]]
 
-Pretty good, right? How about some "actual" cloudy images?
+And here is the result of passing Randii through a model trained after 1 epoch, with 128 filters:
 
-@TODO: show some results with actual images with clouds and whatnot.
+[[./readme_images/Randii_filtered_128_filter_1_epoch.png]]
+
+Pretty /clearly/, the larger model is better at removing clouds than the smaller model. But what about actual clouds?
+
+** With actual clouds
+
+Here is a cloudy image, where the clouds obscure the aurora somewhat:
+
+[[file:readme_images/clouds.png]]
+
+Here is what happens when the smaller model filters the cloudy image:
+
+[[file:readme_images/clouds declouded by Epoch 4.png]]
+
+And with the larger model:
+
+[[file:readme_images/clouds_filtered_128_filter_1_epoch.png]]
+
+It's not perfect. Compared to the original, the 128 filter model maintains colors better, but the aurora is still obscured. Some of the sky in the middle is more visible and is clearer, but it is not the same night-and-day difference that the synthetic clouds have. Granted, the 128 filter model is still /very/ early in training.
+
+@TODO: wait until the training has gotten better, then see if the synthetic cloud approach works with the 128 filter model.
 
 * FAQ
 
-** Where can I get some model weights?
-
-@TODO: make the weights available. Somehow. Perhaps as a GitHub release? I don't know–I mean I need to do more research.
-
-** How do I install it?
+** How do I install Boredealis?
 
 1. ~git clone https://github.com/pressjson/boredealis~ wherever.
 2. ~cd~ into the newly created directory.
@@ -62,6 +80,39 @@ Pretty good, right? How about some "actual" cloudy images?
 4. Recommended: ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages system-wide (I do not recommend this, as I am a big fan of virtual environments and reproducibility).
 5. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/, and then install the requirements.
 6. Have fun?
+
+** Where can I get some model weights?
+
+There are models available to download under the releases tab. Download a model (~.pth~ file), put it in the project's directory, and either:
+
+- edit ~test.py~ to point towards the file;
+
+#+begin_src python
+# at the bottom of test.py
+if __name__ == "__main__":
+    test(
+        # model_load_path="32_filters_models/checkpoint_epoch_20.pth"
+        # assuming the file is just called "4_epochs_64_filters.pth"
+        model_load_path="4_epochs_64_filters.pth"
+    ).show()
+#+end_src
+
+- or just pass the file in as an argumennt:
+
+#+begin_src python
+>>> import test
+>>> test.test(model_load_path = "4_epochs_64_filters.pth")
+<PIL.Image.Image image mode=RGB size=608x608 at 0xADDRESS>
+>>> test.test(model_load_path = "4_epochs_64_filters.pth").show()
+# will show the image
+#+end_src
+
+Beware that the 128 filter models are /quite large and VRAM intensive/. Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU to limit temperatures (I had to do this with my RX 6800 XT).
+
+
+** How do I install some images for testing?
+
+A test directory containing two .avi videos and their corresponding folders of ~png~ images is available in the releases tab. Download the ~.zip~ file and extract it to the project root.
 
 ** How do I use custom images rather than the default ones?
 
@@ -75,17 +126,15 @@ For now, pass the image into ~test.py~ as a custom argument, i.e. ~test(image_pa
 
 Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not change the image size. This should fix the warnings from appearing.
 
-@FIXME: seeing the warning for no local settings found appearing twice when running ~test.py~. I do not care to fix this. (It's as simple as removing the warning statement from ~test.py~, relying only on the statement when it imports ~network.py~).
+@FIXME: there is no default model. As such, ~test.py~ will not work. The models are downloadable in the releases tab.
 
-@FIXME: there is no default model. As such, ~test.py~ will not work.
-
-@TODO: add a default model such that ~test.py~ works. Unfortunately, I can not put it in the repository by default, so it has to be a part of the releases. Plus, with the test folder, this repo is already too large.
-
-@TODO: move the test folder to the releases page.
+@TODO: move the test folder to the releases page. (done?)
 
 ** ~ffmpeg_wrapper.py~ does not work. Why?
 
 ~ffmpeg_wrapper.py~ is, well, a wrapper function for [[https://ffmpeg.org/][FFmpeg]]. As such, you need to install FFmpeg on the system and ensure it is a part of $PATH.
+
+@TODO: make a bootstrap process as a part of the CLI.
 
 ** It doesn't work!
 
