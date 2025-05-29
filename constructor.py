@@ -18,7 +18,7 @@ def convert_directory(input_dir: str, output_name: str):
 
     Hints:
     - The files are structured such that ~%04d~ is the frame number of the video, specified to four digits. For an example, see ~test/images~.
-    - Regular expressions (regex, re) are you friend for finding the string stem separate from the frame number. Since I do not want you to learn regex syntax, I'll give you the regex:
+    - Regular expressions (regex, re) are your friend for finding the string stem separate from the frame number. Since I do not want you to learn regex syntax, I'll give you the regex:
     #+begin_src: python
     r"(\w)_(\d).png"
     #+end_src
@@ -30,7 +30,7 @@ def convert_directory(input_dir: str, output_name: str):
     - I do not believe you need to use any loops.
     - ~ffmpeg~ will automatically write the output to disk at the location.
     - Make sure FFmpeg is installed on your system. Since you're on a Mac, you will probably have to install Homebrew, and then ~brew install ffmpeg~.
-    - WRITE OUT YOUR PSEUDOCODE FIRST. Then, write it in Python. If you want my help, just ask.
+    - WRITE OUT YOUR PSEUDOCODE FIRST. Then, write it in Python.
 
     Precondition: ~test/images~ is filled with images like ~02032021_221508_2108.png~. There should be 3599 files.
     Postcondition: ~sample_output.mp4~ is created inside the ~test~ directory, and is a video of the Aurora Borealis on a clear night. It should be 25 frames per second, 2:23-4 long, and about 11 MB in size.
