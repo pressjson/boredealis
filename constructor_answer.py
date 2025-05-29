@@ -19,6 +19,7 @@ def convert_directory(input_dir: str, output_name: str):
 
     Hints:
     - This is my solution.
+
     Precondition: ~test/images~ is filled with images like ~02032021_221508_2108.png~. There should be 3599 files.
     Postcondition: ~sample_output.mp4~ is created inside the ~test~ directory, and is a video of the Aurora Borealis on a clear night. It should be 25 frames per second, 2:23-4 long, and about 11 MB in size.
     """
@@ -37,6 +38,9 @@ def convert_directory(input_dir: str, output_name: str):
         return -1
 
     match = re.match(r"(\w+)_(\d+)\.png", files[0])
+    if not match:
+        print(f"Error: {files[0]} did not match with the regex.")
+        return -1
     stem = match.group(1)
     # print(stem)
     ffmpeg.input(os.path.join(input_dir, stem + "_%04d.png")).output(
