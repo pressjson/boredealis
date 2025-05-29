@@ -470,16 +470,16 @@ def train_model(
         pin_memory=(device.type == "cuda"),
     )
 
-    print("Visualizing a sample from training data...")
-    sample_inputs, sample_targets = next(iter(train_dataloader))
-    # output_tensor * 0.5 + 0.5
-    show_tensor_image(
-        (sample_inputs[0] * 0.5 + 0.5).cpu()
-    )  # Show first cloudy image in batch
-    show_tensor_image(
-        (sample_targets[0] * 0.5 + 0.5).cpu()
-    )  # Show first clear image in batch
-    return -1
+    # print("Visualizing a sample from training data...")
+    # sample_inputs, sample_targets = next(iter(train_dataloader))
+    # # output_tensor * 0.5 + 0.5
+    # show_tensor_image(
+    #     (sample_inputs[0] * 0.5 + 0.5).cpu()
+    # )  # Show first cloudy image in batch
+    # show_tensor_image(
+    #     (sample_targets[0] * 0.5 + 0.5).cpu()
+    # )  # Show first clear image in batch
+    # return -1
 
     if not os.path.exists(settings.MODEL_SAVE_PATH):
         os.mkdir(settings.MODEL_SAVE_PATH)
@@ -490,7 +490,6 @@ def train_model(
         print("Using Automatic Mixed Precision (AMP).")
 
     start_epoch = 0
-    # training loop
 
     model = DeepUNet(
         n_channels_in=IMG_CHANNELS_IN,
@@ -549,6 +548,9 @@ def train_model(
             f"Wrapping model with nn.DataParallel for {torch.cuda.device_count()} GPUs."
         )
         model = nn.DataParallel(model)
+    if settings.USE_DEVICE_IDS:
+        print(f"Using only devices {settings.DEVICE_IDS}")
+        model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
 
     criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
@@ -560,6 +562,7 @@ def train_model(
     )
     best_val_loss = float("inf")
 
+    # training loop
     for epoch in range(start_epoch, num_epochs):
         epoch_start_time = time.time()
         model.train()
