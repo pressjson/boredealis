@@ -40,6 +40,10 @@ Unfortunately, Randy was not up to the task for training the model, as Randy has
 
 ** With synthetic clouds
 
+Unfortunately, I do not have the original image of Randii before she got her glow-up. However, that does not mean it is still a good demonstration.
+
+@TODO: Update this with a proper demo, like with the clouds below.
+
 Here is the result of passing Randii through a model trained after 4 epochs, with a validation loss of 0.0116:
 
 #+CAPTION: Synthetic image declouded with a model trained after 4 epochs
@@ -66,7 +70,7 @@ And with the larger model:
 
 [[file:readme_images/clouds_filtered_128_filter_1_epoch.png]]
 
-It's not perfect. Compared to the original, the 128 filter model maintains colors better, but the aurora is still obscured. Some of the sky in the middle is more visible and is clearer, but it is not the same night-and-day difference that the synthetic clouds have. Granted, the 128 filter model is still /very/ early in training.
+It's not perfect. Far from ideal, actually. Compared to the original, the 128 filter model maintains colors better, but the aurora is still obscured. Some of the sky in the middle is more visible and is clearer, but it is not the same night-and-day difference that the synthetic clouds have. Granted, the 128 filter model is still /very/ early in training.
 
 @TODO: wait until the training has gotten better, then see if the synthetic cloud approach works with the 128 filter model.
 
@@ -78,12 +82,12 @@ It's not perfect. Compared to the original, the 128 filter model maintains color
 2. ~cd~ into the newly created directory.
 3. Recommended: ~python3 -m venv venv~ to make a virtual environment inside the project directory.
 4. Recommended: ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages system-wide (I do not recommend this, as I am a big fan of virtual environments and reproducibility).
-5. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/, and then install the requirements.
+5. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the Pytorch website]]), and then install the requirements.
 6. Have fun?
 
-** Where can I get some model weights?
+** Where can I get some models?
 
-There are models available to download under the releases tab. Download a model (~.pth~ file), put it in the project's directory, and either:
+There are models available to download under the releases tab. Download a model (~.pth~ file), put it in the project's directory. To use the model with ~test.py~, either:
 
 - edit ~test.py~ to point towards the file;
 
@@ -97,7 +101,7 @@ if __name__ == "__main__":
     ).show()
 #+end_src
 
-- or just pass the file in as an argumennt:
+- or just pass the file in as an argumennt.
 
 #+begin_src python
 >>> import test
@@ -109,10 +113,13 @@ if __name__ == "__main__":
 
 Beware that the 128 filter models are /quite large and VRAM intensive/. Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU to limit temperatures (I had to do this with my RX 6800 XT).
 
-
 ** How do I install some images for testing?
 
-A test directory containing two .avi videos and their corresponding folders of ~png~ images is available in the releases tab. Download the ~.zip~ file and extract it to the project root.
+A release containing two ~.avi~ videos and their corresponding folders of ~.png~ images is available in the releases tab. Download the file(s) and extract them into a directory, such as ~test~.
+
+Because I am a chaotic mess, these images are uniformly named within a directory, but not between directories. Just . . . beware.
+
+If you choose to use these images, you will have to change the code to whatever you use.
 
 ** How do I use custom images rather than the default ones?
 
