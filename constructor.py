@@ -20,7 +20,7 @@ def convert_directory(input_dir: str, output_name: str):
     - The files are structured such that ~%04d~ is the frame number of the video, specified to four digits. For an example, see ~test/images~.
     - Regular expressions (regex, re) are your friend for finding the string stem separate from the frame number. Since I do not want you to learn regex syntax, I'll give you the regex:
     #+begin_src: python
-    r"(\w)_(\d).png"
+    r"(\w+)_(\d+)\.png"
     #+end_src
       - If you want to learn regex, explain what this regex does, and why it works in all cases.
     - Use re.match() to get the base name separate from the frame number.
