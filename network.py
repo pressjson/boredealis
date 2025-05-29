@@ -547,10 +547,11 @@ def train_model(
         print(
             f"Wrapping model with nn.DataParallel for {torch.cuda.device_count()} GPUs."
         )
-        model = nn.DataParallel(model)
-    if settings.USE_DEVICE_IDS:
-        print(f"Using only devices {settings.DEVICE_IDS}")
-        model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
+        if settings.USE_DEVICE_IDS:
+            print(f"Using only devices {settings.DEVICE_IDS}")
+            model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
+        else:
+            model = nn.DataParallel(model)
 
     criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
