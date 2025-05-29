@@ -20,10 +20,10 @@ def convert_directory(input_dir: str, output_name: str):
     - The files are structured such that ~%04d~ is the frame number of the video, specified to four digits. For an example, see ~test/images~.
     - Regular expressions (regex, re) are your friend for finding the string stem separate from the frame number. Since I do not want you to learn regex syntax, I'll give you the regex:
     #+begin_src: python
-    r"(\w)_(\d).png"
+    r"(\w+)_(\d+)\.png"
     #+end_src
-      - If you want to learn regex, explain what this regex does, and why it works in all cases.
-    - Use re.match() to get the base name separate from the frame number.
+      - If you want to learn regex, explain what this regex does, and why it works for both sample strings.
+    - Use re.match() to get a match object, and match.groups() to get the base name separate from the frame number.
     - ~ffmpeg~ will take an input and convert to the output. For example, the terminal command ~ffmpeg -i foo.mp4 -o bar.mov~ will take ~foo.mp4~ and convert it into ~bar.mov~.
       - ~ffmpeg~ can convert image directories into videos using ~ffmpeg -i location%04d.png bar.mp4~ to turn all images with the name ~location0001~ (and so on) into an mp4 file.
       - For an example of how ffmpeg in Python is used, see ~test.py~.
