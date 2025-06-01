@@ -159,8 +159,8 @@ def test(
     # This should match the transformations applied to your training input (cloudy_image or clear_image before normalization)
     # Specifically Resize and Normalize.
     # Your training loop normalizes inputs to [-1, 1]
-    if verbose:
-        print(f"Model: {model}")
+    # if verbose:
+    #     print(f"Model: {model}")
     preprocess = T.Compose(
         [
             T.Resize(image_size_trained),  # Use the size the model was trained on
@@ -175,6 +175,13 @@ def test(
         print(f"Loading and preprocessing image: {image_path}")
     try:
         image = Image.open(image_path).convert("RGB")
+        if image.size != settings.IMAGE_SIZE:
+            if verbose:
+                print(
+                    f"Warning: input size {image.size} is not {settings.IMAGE_SIZE}. Resizing . . ."
+                )
+                image = image.resize(settings.IMAGE_SIZE, resample=Image.BILINEAR)
+                return image
         input_tensor = preprocess(image)
         input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension (B, C, H, W)
         input_tensor = input_tensor.to(device)
@@ -195,9 +202,7 @@ def test(
             )
 
     # --- Postprocessing ---
-    output_tensor = output_tensor.squeeze(
-        0
-    ).cpu()  # Remove batch dimension and move to CPU
+    output_tensor = output_tensor.squeeze(0)
 
     # Denormalize: model outputs are in [-1, 1] (due to Tanh)
     # We need to map them back to [0, 1] for to_pil_image

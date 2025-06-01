@@ -18,7 +18,8 @@ def convert_to_images(input, output_path, output_name="output"):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     ffmpeg.input(input).output(
-        os.path.join(output_path, output_name + "_%04d.png")  # Use jpg for training
+        os.path.join(output_path, output_name + "_%04d.png"),
+        loglevel="quiet",  # Use jpg for training
     ).run()
 
 

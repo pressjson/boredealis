@@ -59,7 +59,7 @@ def convert_directory(input_dir: str, output_name: str):
     stem = match.group(1)
     # print(stem)
     ffmpeg.input(os.path.join(input_dir, stem + "_%04d.png")).output(
-        output_name, framerate=25
+        output_name, framerate=25, loglevel="quiet"
     ).run()
 
 

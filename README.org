@@ -72,7 +72,33 @@ And with the larger model:
 
 It's not perfect. Far from ideal, actually. Compared to the original, the 128 filter model maintains colors better, but the aurora is still obscured. Some of the sky in the middle is more visible and is clearer, but it is not the same night-and-day difference that the synthetic clouds have. Granted, the 128 filter model is still /very/ early in training.
 
-@TODO: wait until the training has gotten better, then see if the synthetic cloud approach works with the 128 filter model.
+** Clouds partially obscuring the Aurora
+
+Here is the Aurora, barely bleeding through some clouds:
+
+[[file:readme_images/output_0258.png]]
+
+It is visible, but it is partially hidden by the clouds. Does the model work with 64 filters?
+
+[[file:readme_images/64_filtered_0258.png]]
+
+Kind of. But the real magic is with 128 filters:
+
+[[file:readme_images/128_filtered_0258.png]]
+
+Look at how much clearer the Aurora is! It is the definition of night and day.
+
+** Putting a video together
+
+The model filters images from a video. How does a video look generated (or put back together) from the filtered images? Here is an example video:
+
+[[file:readme_images/28092017_194355.avi]]
+
+And here is the same video put through the pipeline with 128 filters:
+
+[[file:readme_images/28092017_194355.mp4]]
+
+It's pretty incredible how much easier the aurora is to see.
 
 * FAQ
 
@@ -145,7 +171,7 @@ Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not chan
 
 ** It doesn't work!
 
-Are you in the virtual environment?
+Are you in the virtual environment? Or have the packages installed?
 
 Did you change something?
 

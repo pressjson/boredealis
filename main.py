@@ -42,6 +42,15 @@ VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
 VALID_MODEL_SIZES = ["32", "64", "128"]
 
 
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
 def rmdir(directory):
     """Recursively removes a directory."""
     for item in os.listdir(directory):
@@ -84,7 +93,7 @@ def response_loop(initial_message, options=["y", "n"]):
 
 def main(argv_1=None, argv_2=None, argv_3=None):
     # print title
-    f = open("title.txt", "r")
+    f = open(resource_path("title.txt"), "r")
     title = f.read()
     console.print(title, style="bold green")
     console.print(
@@ -103,6 +112,9 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     video_path = ""
     if argv_1:
         video_path = argv_1
+        if not os.path.exists(video_path):
+            console.print(f"{video_path} is not a valid video path", style="red")
+            sys.exit(-1)
     else:
         while True:
             video_path = console.input(
@@ -111,6 +123,10 @@ def main(argv_1=None, argv_2=None, argv_3=None):
 
             if not os.path.exists(video_path):
                 console.print(f"{video_path} is not a valid video path", style="red")
+                console.print(
+                    "There is a known issue where video paths with spaces trigger this warning. If that's this, I am sorry.",
+                    style="yellow",
+                )
                 continue
 
             filename, extension = os.path.splitext(video_path)
@@ -157,17 +173,19 @@ def main(argv_1=None, argv_2=None, argv_3=None):
 
     match response:
         case "32":
-            model_path = os.path.join("32_filters_models", "checkpoint_best.pth")
+            model_path = resource_path(
+                os.path.join("model_milestones", "checkpoint_best.pth")
+            )
             console.print("Error: this does not work (yet).", style="bold red")
             sys.exit(-1)
             # TODO: move this to the proper directory
         case "64":
-            model_path = os.path.join(
-                "model_milestones", "first_working_64_filter_model.pth"
+            model_path = resource_path(
+                os.path.join("model_milestones", "first_working_64_filter_model.pth")
             )
         case "128":
-            model_path = os.path.join(
-                "model_milestones", "128_filters_checkpoint_5.pth"
+            model_path = resource_path(
+                os.path.join("model_milestones", "128_filters_checkpoint_5.pth")
             )
         case _:
             console.print(
@@ -177,9 +195,9 @@ def main(argv_1=None, argv_2=None, argv_3=None):
 
     # make temporary directories
     start_time = time.time()
-    tmp = "tmp"
-    tmp_original_images = os.path.join("tmp", "original_images")
-    tmp_filtered_images = os.path.join("tmp", "filtered_images")
+    tmp = resource_path("tmp")
+    tmp_original_images = resource_path(os.path.join("tmp", "original_images"))
+    tmp_filtered_images = resource_path(os.path.join("tmp", "filtered_images"))
     if os.path.exists(tmp):
         console.print("Warning: tmp directory exists. Removing . . .", style="yellow")
         rmdir(tmp)
@@ -206,7 +224,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
 
     console.print("Cleaning up . . .", style="green")
-    rmdir(tmp)
+    # rmdir(tmp)
 
     console.print(
         f"Done! Finished in {time.time()-start_time:2f} seconds.", style="green"
