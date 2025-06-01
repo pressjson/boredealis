@@ -1,0 +1,3 @@
+Usage: boredealis [input file name | help] [output file name] [model filters]
+
+The arguments are available to skip the dialog options.

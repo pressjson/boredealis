@@ -56,35 +56,14 @@ else:
 # that llm is actually smart
 
 
-def test(
-    # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
-    image_path=os.path.join("readme_images", "Randii.png"),
-    # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
+def load_model(
     model_load_path=os.path.join("models", "checkpoint_best.pth"),
-    image_size_trained=settings.IMAGE_SIZE,
-) -> Image.Image:
-    """Tests the model and returns a PIL Image.
+    device="cuda" if torch.cuda.is_available() else "cpu",
+    verbose=True,
+):
 
-    Args:
-        image_path (str): Path to the image to be converted.
-        model_load_path (str): Path to the model to be loaded.
-        image_size_trained (str): Should not be touched.
-
-    Returns:
-        PIL.Image.Image if successful.
-        -1 if something went wrong.
-    """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    if not os.path.exists(model_load_path):
-        print(f"Error: Model checkpoint not found at {model_load_path}")
-        return -1
-    if not os.path.exists(image_path):
-        print(f"Error: Test image not found at {image_path}")
-        return -1
-
-    print(f"Loading checkpoint from: {model_load_path}")
+    if verbose:
+        print(f"Loading checkpoint from: {model_load_path}")
     # map_location ensures model loads correctly even if saved on GPU and loading on CPU
     checkpoint = torch.load(model_load_path, map_location=device)
 
@@ -113,9 +92,10 @@ def test(
         n_classes_out=n_classes_out,
         start_filters=start_filters,
     )
-    print(
-        f"Instantiated model with: in_channels={n_channels_in}, out_channels={n_classes_out}, start_filters={start_filters}"
-    )
+    if verbose:
+        print(
+            f"Instantiated model with: in_channels={n_channels_in}, out_channels={n_classes_out}, start_filters={start_filters}"
+        )
 
     # Handle DataParallel state_dict keys
     # If the model was saved with nn.DataParallel, keys will have 'module.' prefix.
@@ -127,7 +107,8 @@ def test(
     is_data_parallel = any(key.startswith("module.") for key in state_dict.keys())
 
     if is_data_parallel:
-        print("Adjusting keys from DataParallel model.")
+        if verbose:
+            print("Adjusting keys from DataParallel model.")
         for k, v in state_dict.items():
             name = k[7:] if k.startswith("module.") else k  # remove `module.`
             new_state_dict[name] = v
@@ -137,11 +118,49 @@ def test(
 
     model = model.to(device)
     model.eval()  # Set model to evaluation mode
+    return model
 
+
+def test(
+    # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
+    image_path=os.path.join("readme_images", "Randii.png"),
+    # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
+    model_load_path=os.path.join("models", "checkpoint_best.pth"),
+    image_size_trained=settings.IMAGE_SIZE,
+    preloaded_model=None,
+    verbose=True,
+) -> Image.Image:
+    """Tests the model and returns a PIL Image.
+
+    Args:
+        image_path (str): Path to the image to be converted.
+        model_load_path (str): Path to the model to be loaded.
+        image_size_trained (str): Should not be touched.
+
+    Returns:
+        PIL.Image.Image if successful.
+        -1 if something went wrong.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model = network.DeepUNet(  # Make sure DeepUNet is correctly imported/defined
+        n_channels_in=3,
+        n_classes_out=3,
+        start_filters=32,
+    )
+
+    if not preloaded_model:
+        model = load_model(
+            model_load_path=model_load_path, device=device, verbose=verbose
+        )
+    else:
+        model = preloaded_model
     # --- Image Preprocessing ---
     # This should match the transformations applied to your training input (cloudy_image or clear_image before normalization)
     # Specifically Resize and Normalize.
     # Your training loop normalizes inputs to [-1, 1]
+    if verbose:
+        print(f"Model: {model}")
     preprocess = T.Compose(
         [
             T.Resize(image_size_trained),  # Use the size the model was trained on
@@ -152,24 +171,28 @@ def test(
         ]
     )
 
-    print(f"Loading and preprocessing image: {image_path}")
+    if verbose:
+        print(f"Loading and preprocessing image: {image_path}")
     try:
         image = Image.open(image_path).convert("RGB")
         input_tensor = preprocess(image)
         input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension (B, C, H, W)
         input_tensor = input_tensor.to(device)
-        print(f"Input tensor shape: {input_tensor.shape}")
+        if verbose:
+            print(f"Input tensor shape: {input_tensor.shape}")
     except Exception as e:
         print(f"Error processing image {image_path}: {e}")
         return None
 
     # --- Inference ---
     with torch.no_grad():  # Disable gradient calculations for inference
-        print("Running inference...")
+        if verbose:
+            print("Running inference...")
         output_tensor = model(input_tensor)
-        print(
-            f"Output tensor shape: {output_tensor.shape}, min: {output_tensor.min():.2f}, max: {output_tensor.max():.2f}"
-        )
+        if verbose:
+            print(
+                f"Output tensor shape: {output_tensor.shape}, min: {output_tensor.min():.2f}, max: {output_tensor.max():.2f}"
+            )
 
     # --- Postprocessing ---
     output_tensor = output_tensor.squeeze(
@@ -184,7 +207,8 @@ def test(
 
     # Convert tensor to PIL Image
     output_image = TF.to_pil_image(output_tensor_denorm)
-    print("Inference complete. Output image generated.")
+    if verbose:
+        print("Inference complete. Output image generated.")
 
     return output_image
 
@@ -192,5 +216,5 @@ def test(
 if __name__ == "__main__":
     test(
         # model_load_path="32_filters_models/checkpoint_epoch_20.pth"
-        model_load_path="models/checkpoint_best.pth"
+        model_load_path="model_milestones/128_filters_checkpoint_5.pth"
     ).show()

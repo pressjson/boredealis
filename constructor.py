@@ -22,8 +22,8 @@ def convert_directory(input_dir: str, output_name: str):
     #+begin_src: python
     r"(\w+)_(\d+)\.png"
     #+end_src
-      - If you want to learn regex, explain what this regex does, and why it works in all cases.
-    - Use re.match() to get the base name separate from the frame number.
+      - If you want to learn regex, explain what this regex does, and why it works for both sample strings.
+    - Use re.match() to get a match object, and match.groups() to get the base name separate from the frame number.
     - ~ffmpeg~ will take an input and convert to the output. For example, the terminal command ~ffmpeg -i foo.mp4 -o bar.mov~ will take ~foo.mp4~ and convert it into ~bar.mov~.
       - ~ffmpeg~ can convert image directories into videos using ~ffmpeg -i location%04d.png bar.mp4~ to turn all images with the name ~location0001~ (and so on) into an mp4 file.
       - For an example of how ffmpeg in Python is used, see ~test.py~.
@@ -35,8 +35,32 @@ def convert_directory(input_dir: str, output_name: str):
     Precondition: ~test/images~ is filled with images like ~02032021_221508_2108.png~. There should be 3599 files.
     Postcondition: ~sample_output.mp4~ is created inside the ~test~ directory, and is a video of the Aurora Borealis on a clear night. It should be 25 frames per second, 2:23-4 long, and about 11 MB in size.
     """
-    print("Error: needs to be implemented")
-    return -1
+    # print("Error: needs to be implemented")
+    # return -1
+
+    # I'm sorry Josh, I needed to do it to make the TUI
+    if os.path.exists(output_name):
+        print(f"Warning: {output_name} exists. Deleting {output_name}.")
+        os.remove(output_name)
+    if not os.path.exists(input_dir):
+        print(f"Error: {input_dir} does not exist.")
+        return -1
+    files = os.listdir(input_dir)
+    if len(files) == 0:
+        print(
+            f"Error: {input_dir} is empty. Did everything go alright? Is {input_dir} the correct directory?"
+        )
+        return -1
+
+    match = re.match(r"(\w+)_(\d+)\.png", files[0])
+    if not match:
+        print(f"Error: {files[0]} did not match with the regex.")
+        return -1
+    stem = match.group(1)
+    # print(stem)
+    ffmpeg.input(os.path.join(input_dir, stem + "_%04d.png")).output(
+        output_name, framerate=25
+    ).run()
 
 
 if __name__ == "__main__":

@@ -15,7 +15,8 @@ import time
 import random
 
 if not os.path.exists("local_settings.py"):
-    print("Warning: local settings not found. Using default settings.")
+    if __name__ == "__main__":
+        print("Warning: local settings not found. Using default settings.")
     import settings
 else:
     import local_settings as settings
