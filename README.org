@@ -128,15 +128,21 @@ Instead of sitting through the interactive TUI every time, you can skip it by pa
 
 #+begin_src bash
 # If running through python3 (if your system has python, that works as well)
-python3 main.py [input_file_location] [output_file_name] [num_filters]
+python3 main.py <input_file_location> <output_file_name> <num_filters>
 # If running via the shell script
-./run.sh [input_file_location] [output_file_name] [num_filters]
+./run.sh <input_file_location> <output_file_name> <num_filters>
 # This also supports help and version
 python3 main.py [help | --help | -h]
 ./run.sh [version | --version | -v]
 #+end_src
 
-This also supports only passing in one or two parameters. However, they /must/ be in the order ~input output filters~, so ~input filters~ does not work.
+@TODO: add extra flags, such as ~--input=[input]~ for the input, output, and filters; ~--no-clean-tmp~ or ~-n~; and whatever else is necessary.
+
+This also supports only passing in one or two parameters. However, they /must/ be in the order ~[input] [output] [filters]~, so ~[input] [filters]~ does not work.
+
+*** Do I have to type in the file paths every single time?
+
+Not necessarily. Most terminal emulators support dragging and dropping files as a way to paste their paths. Up arrow is a great way to re-bring up your last used query/entry.
 
 ** Where can I get some models?
 
