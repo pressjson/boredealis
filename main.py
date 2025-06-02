@@ -207,7 +207,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     console.print("Converting the video into images . . .", style="green")
     ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
 
-    model = test.load_model(model_path, verbose=True)
+    model = test.load_model(model_path, verbose=False)
     console.print("Upscaling images . . .", style="green")
     for image in track(os.listdir(tmp_original_images)):
         image_path = os.path.join(tmp_original_images, image)
@@ -224,10 +224,10 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
 
     console.print("Cleaning up . . .", style="green")
-    # rmdir(tmp)
+    rmdir(tmp)
 
     console.print(
-        f"Done! Finished in {time.time()-start_time:2f} seconds.", style="green"
+        f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
     )
 
 

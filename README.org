@@ -20,7 +20,7 @@ So vision transformers are really meant for image classification. Time to learn 
 5. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
 6. What about a bootstrap script?
 
-The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
+The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
 ** Randy and Randii
 
@@ -42,8 +42,6 @@ Unfortunately, Randy was not up to the task for training the model, as Randy has
 
 Unfortunately, I do not have the original image of Randii before she got her glow-up. However, that does not mean it is still a good demonstration.
 
-@TODO: Update this with a proper demo, like with the clouds below.
-
 Here is the result of passing Randii through a model trained after 4 epochs, with a validation loss of 0.0116:
 
 #+CAPTION: Synthetic image declouded with a model trained after 4 epochs
@@ -54,9 +52,9 @@ And here is the result of passing Randii through a model trained after 1 epoch, 
 
 [[./readme_images/Randii_filtered_128_filter_1_epoch.png]]
 
-Pretty /clearly/, the larger model is better at removing clouds than the smaller model. But what about actual clouds?
+/Clearly/, the larger model is better at removing clouds than the smaller model. But what about actual clouds?
 
-** With actual clouds
+** Near total coverage
 
 Here is a cloudy image, where the clouds obscure the aurora somewhat:
 
@@ -86,17 +84,17 @@ Kind of. But the real magic is with 128 filters:
 
 [[file:readme_images/128_filtered_0258.png]]
 
-Look at how much clearer the Aurora is! It is the definition of night and day.
+Look at how much clearer the Aurora is! It is the definition of night and day. It is not perfect, but it is still much better than the original video.
 
 ** Putting a video together
 
 The model filters images from a video. How does a video look generated (or put back together) from the filtered images? Here is an example video:
 
-[[file:readme_images/28092017_194355.avi]]
+[[./readme_images/28092017_194355.avi]]
 
 And here is the same video put through the pipeline with 128 filters:
 
-[[file:readme_images/28092017_194355.mp4]]
+[[./readme_images/28092017_194355.mp4]]
 
 It's pretty incredible how much easier the aurora is to see.
 
@@ -106,14 +104,47 @@ It's pretty incredible how much easier the aurora is to see.
 
 1. ~git clone https://github.com/pressjson/boredealis~ wherever.
 2. ~cd~ into the newly created directory.
-3. Recommended: ~python3 -m venv venv~ to make a virtual environment inside the project directory.
-4. Recommended: ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages system-wide (I do not recommend this, as I am a big fan of virtual environments and reproducibility).
-5. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the Pytorch website]]), and then install the requirements.
-6. Have fun?
+3. Download the models from the releases page, and place them in a new directory in the project root called ~model_milestones~.
+   @TODO: have the models in the releases tab be the same name as the ones called by ~main.py~.
+
+Then, you have two options:
+
+*** Use the shell script
+
+~run.sh~ will bootstrap the virtual enviornment if it does not exist, enter into the virtual enviornment if it is not in one already, and then call ~main.py~ to start the project. I do not know if it works on Windows, but given that I call paths with the Unix style right now, it probably will not. If you are on Windows, I would recommend building the packages manually
+
+This does not support clicking on ~run.sh~ and having a new terminal window popping up, as the way to pop up a new terminal window is not standard, and I do not want to go through the pain of making a bash script to check every terminal emulator. And no, I will not be making a GUI.
+
+*** Install the packages manually
+
+1. Recommended: ~python3 -m venv venv~ to make a virtual environment inside the project directory.
+2. Recommended: ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages system-wide (I do not recommend this, as I am a big fan of virtual environments and reproducibility).
+3. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the Pytorch website]]), and then install the requirements.
+4. Have fun?
+
+** How can I pass parameters into Boredealis?
+
+Instead of sitting through the interactive TUI every time, you can skip it by passing in parameters:
+
+#+begin_src bash
+# If running through python3 (if your system has python, that works as well)
+python3 main.py [input_file_location] [output_file_name] [num_filters]
+# If running via the shell script
+./run.sh [input_file_location] [output_file_name] [num_filters]
+# This also supports help and version
+python3 main.py [help | --help | -h]
+./run.sh [version | --version | -v]
+#+end_src
+
+This also supports only passing in one or two parameters. However, they /must/ be in the order ~input output filters~, so ~input filters~ does not work.
 
 ** Where can I get some models?
 
-There are models available to download under the releases tab. Download a model (~.pth~ file), put it in the project's directory. To use the model with ~test.py~, either:
+There are models available to download under the releases tab. Download a model (~.pth~ file), put it in the project's directory.
+
+To use the models with the main script, place them inside a new directory called ~model_milestones~.
+
+To use a model with ~test.py~, either:
 
 - edit ~test.py~ to point towards the file;
 
@@ -137,9 +168,9 @@ if __name__ == "__main__":
 # will show the image
 #+end_src
 
-Beware that the 128 filter models are /quite large and VRAM intensive/. Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU to limit temperatures (I had to do this with my RX 6800 XT).
+*Beware that the 128 filter models are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
 
-** How do I install some images for testing?
+** How do I install some images/videos for testing?
 
 A release containing two ~.avi~ videos and their corresponding folders of ~.png~ images is available in the releases tab. Download the file(s) and extract them into a directory, such as ~test~.
 
@@ -147,21 +178,19 @@ Because I am a chaotic mess, these images are uniformly named within a directory
 
 If you choose to use these images, you will have to change the code to whatever you use.
 
-** How do I use custom images rather than the default ones?
+** How do I use custom images/videos rather than the default ones with ~test.py~?
+
+If you are wanting to tinker with ~test.py~, you are smart enough to modify the code to point to custom images.
 
 For now, pass the image into ~test.py~ as a custom argument, i.e. ~test(image_path="path/to/image")~ inside a python interpreter, or edit the file to include your custom path. I'm sorry there is no good way to do this.
 
-@TODO: add an interactive menu.
-
-@TODO: the CLI.
-
 ** How do I make local settings? Why does a warning about no local settings keep appearing?
+
+This is only necessary for /training/ models. If you just want to use the models, then this has no effect.
 
 Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not change the image size. This should fix the warnings from appearing.
 
 @FIXME: there is no default model. As such, ~test.py~ will not work. The models are downloadable in the releases tab.
-
-@TODO: move the test folder to the releases page. (done?)
 
 ** ~ffmpeg_wrapper.py~ does not work. Why?
 
