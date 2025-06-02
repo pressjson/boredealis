@@ -196,8 +196,6 @@ Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not chan
 
 ~ffmpeg_wrapper.py~ is, well, a wrapper function for [[https://ffmpeg.org/][FFmpeg]]. As such, you need to install FFmpeg on the system and ensure it is a part of $PATH.
 
-@TODO: make a bootstrap process as a part of the CLI.
-
 ** It doesn't work!
 
 Are you in the virtual environment? Or have the packages installed?
