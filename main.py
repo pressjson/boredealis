@@ -185,7 +185,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
             )
         case "128":
             model_path = resource_path(
-                os.path.join("model_milestones", "128_filters_checkpoint_5.pth")
+                os.path.join("model_milestones", "128_checkpoint_best.pth")
             )
         case _:
             console.print(

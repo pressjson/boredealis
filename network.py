@@ -15,8 +15,7 @@ import time
 import random
 
 if not os.path.exists("local_settings.py"):
-    if __name__ == "__main__":
-        print("Warning: local settings not found. Using default settings.")
+    print("Warning: local settings not found. Using default settings.")
     import settings
 else:
     import local_settings as settings
@@ -496,7 +495,7 @@ def train_model(
         n_channels_in=IMG_CHANNELS_IN,
         n_classes_out=NUM_CLASSES_OUT,
         start_filters=START_FILTERS,
-    ).to(device)
+    )
     if previous_model_path == None:
         print(
             f"Initialized DeepUNet with {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
@@ -542,17 +541,23 @@ def train_model(
             f"Loading model from {previous_model_path} with {in_channels} channels in, {out_channels} classes out, and {start_filters} start filters."
         )
 
-    model = model.to(device)
-
     if torch.cuda.is_available() and torch.cuda.device_count() > 2:
         print(
             f"Wrapping model with nn.DataParallel for {torch.cuda.device_count()} GPUs."
         )
         if settings.USE_DEVICE_IDS:
             print(f"Using only devices {settings.DEVICE_IDS}")
-            model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
+            model = model.to(f"cuda:{int(settings.DEVICE_IDS[0])}")
+            model = nn.DataParallel(
+                model,
+                device_ids=settings.DEVICE_IDS,
+                output_device=settings.DEVICE_IDS[0],
+            )
         else:
+            model = model.to(device)
             model = nn.DataParallel(model)
+    else:
+        model = model.to(device)
 
     criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
@@ -573,7 +578,11 @@ def train_model(
         batch_start_time = time.time()
 
         for i, (inputs, targets) in enumerate(train_dataloader):
-            inputs, targets = inputs.to(device), targets.to(device)
+            inputs, targets = inputs.to(
+                f"cuda:{settings.DEVICE_IDS[0]}" if settings.USE_DEVICE_IDS else device
+            ), targets.to(
+                f"cuda:{settings.DEVICE_IDS[0]}" if settings.USE_DEVICE_IDS else device
+            )
             # print("Visualizing a sample from training data...")
             # sample_inputs, sample_targets = next(iter(train_dataloader))
             # # output_tensor * 0.5 + 0.5
@@ -624,7 +633,15 @@ def train_model(
         running_val_loss = 0.0
         with torch.no_grad():
             for inputs, targets in valid_dataloader:
-                inputs, targets = inputs.to(device), targets.to(device)
+                inputs, targets = inputs.to(
+                    f"cuda:{settings.DEVICE_IDS[0]}"
+                    if settings.USE_DEVICE_IDS
+                    else device
+                ), targets.to(
+                    f"cuda:{settings.DEVICE_IDS[0]}"
+                    if settings.USE_DEVICE_IDS
+                    else device
+                )
                 # show_tensor_image(inputs[0])
                 # show_tensor_image(targets[0])
                 # break
@@ -707,5 +724,5 @@ def show_tensor_image(tensor):
 if __name__ == "__main__":
     train_model(
         DATA_DIR="data/png_images",
-        # previous_model_path="models/checkpoint_best.pth"
+        # previous_model_path="128_filter_models/checkpoint_best.pth"
     )
