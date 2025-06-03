@@ -9,7 +9,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[("model_milestones", "model_milestones"), ("title.txt", "."), ("help.txt", ".")] + triton_backends_datas,
+    datas=[("models", "models"), ("title.txt", "."), ("help.txt", ".")] + triton_backends_datas,
     hiddenimports=[
         'ffmpeg.nodes',
         'ffmpeg.filters',

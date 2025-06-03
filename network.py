@@ -723,6 +723,6 @@ def show_tensor_image(tensor):
 
 if __name__ == "__main__":
     train_model(
-        DATA_DIR="data/png_images",
-        # previous_model_path="128_filter_models/checkpoint_best.pth"
+        DATA_DIR=os.path.join("data", "images"),
+        # previous_model_path=os.path.join("models", "64_checkpoint_best.pth")
     )

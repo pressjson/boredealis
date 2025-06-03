@@ -98,20 +98,19 @@ And here is the same video put through the pipeline with 128 filters:
 
 It's pretty incredible how much easier the aurora is to see.
 
-* FAQ
-
-** How do I install Boredealis?
+* Installing
 
 1. ~git clone https://github.com/pressjson/boredealis~ wherever.
 2. ~cd~ into the newly created directory.
 3. Download the models from the releases page, and place them in a new directory in the project root called ~model_milestones~.
-   @TODO: have the models in the releases tab be the same name as the ones called by ~main.py~.
 
 Then, you have two options:
 
 *** Use the shell script
 
 ~run.sh~ will bootstrap the virtual enviornment if it does not exist, enter into the virtual enviornment if it is not in one already, and then call ~main.py~ to start the project. I do not know if it works on Windows, but given that I call paths with the Unix style right now, it probably will not. If you are on Windows, I would recommend building the packages manually
+
+~run.sh~ will also download the models in the releases tab into the models folder.
 
 This does not support clicking on ~run.sh~ and having a new terminal window popping up, as the way to pop up a new terminal window is not standard, and I do not want to go through the pain of making a bash script to check every terminal emulator. And no, I will not be making a GUI.
 
@@ -120,7 +119,10 @@ This does not support clicking on ~run.sh~ and having a new terminal window popp
 1. Recommended: ~python3 -m venv venv~ to make a virtual environment inside the project directory.
 2. Recommended: ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages system-wide (I do not recommend this, as I am a big fan of virtual environments and reproducibility).
 3. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the Pytorch website]]), and then install the requirements.
-4. Have fun?
+4. Install the models from the releases page into a directory called ~models~.
+5. Have fun?
+
+* FAQ
 
 ** How can I pass parameters into Boredealis?
 
@@ -148,7 +150,7 @@ Not necessarily. Most terminal emulators support dragging and dropping files as 
 
 There are models available to download under the releases tab. Download a model (~.pth~ file), put it in the project's directory.
 
-To use the models with the main script, place them inside a new directory called ~model_milestones~.
+To use the models with the main script, place them inside a new directory called ~models~.
 
 To use a model with ~test.py~, either:
 
@@ -158,9 +160,8 @@ To use a model with ~test.py~, either:
 # at the bottom of test.py
 if __name__ == "__main__":
     test(
-        # model_load_path="32_filters_models/checkpoint_epoch_20.pth"
-        # assuming the file is just called "4_epochs_64_filters.pth"
-        model_load_path="4_epochs_64_filters.pth"
+        # assuming the file is from the models page
+        model_load_path=os.path.join("models", "64_checkpoint_best.pth")
     ).show()
 #+end_src
 
@@ -168,13 +169,13 @@ if __name__ == "__main__":
 
 #+begin_src python
 >>> import test
->>> test.test(model_load_path = "4_epochs_64_filters.pth")
+>>> test.test(model_load_path = os.path.join("models", "64_checkpoint_best.pth"))
 <PIL.Image.Image image mode=RGB size=608x608 at 0xADDRESS>
->>> test.test(model_load_path = "4_epochs_64_filters.pth").show()
+>>> test.test(model_load_path = os.path.join("models", "64_checkpoint_best.pth"))
 # will show the image
 #+end_src
 
-*Beware that the 128 filter models are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
+*Beware that the 128 filter models and greater are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
 
 ** How do I install some images/videos for testing?
 

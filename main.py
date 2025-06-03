@@ -171,27 +171,17 @@ def main(argv_1=None, argv_2=None, argv_3=None):
                 continue
             break
 
-    match response:
-        case "32":
-            model_path = resource_path(
-                os.path.join("model_milestones", "checkpoint_best.pth")
-            )
-            console.print("Error: this does not work (yet).", style="bold red")
-            sys.exit(-1)
-            # TODO: move this to the proper directory
-        case "64":
-            model_path = resource_path(
-                os.path.join("model_milestones", "first_working_64_filter_model.pth")
-            )
-        case "128":
-            model_path = resource_path(
-                os.path.join("model_milestones", "128_checkpoint_best.pth")
-            )
-        case _:
-            console.print(
-                f"Error: {response} is not a valid number of filters", style="bold red"
-            )
-            return -1
+    model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
+    if not os.path.exists(model_path):
+        console.print(
+            "Error: model path does not exist. Exiting . . .", style="bold red"
+        )
+        sys.exit(-1)
+    if response > str(64):
+        console.print(
+            "Warning: running large models is very VRAM intensive.", style="yellow"
+        )
+        console.print("If things go wrong, it is not my fault.", style="yellow")
 
     # make temporary directories
     start_time = time.time()

@@ -57,10 +57,20 @@ else:
 
 
 def load_model(
-    model_load_path=os.path.join("models", "checkpoint_best.pth"),
+    model_load_path=os.path.join("models", "64_checkpoint_best.pth"),
     device="cuda" if torch.cuda.is_available() else "cpu",
     verbose=True,
 ):
+    """Loads a model, and returns it.
+
+    Args:
+        model_load_path (str): Path to the models to be loaded.
+        device (str): Device to load the model on to, defaults to default device.
+        verbose (bool): Prints helpful information if True.
+
+    Returns:
+        network.DeepUNet().to(device) in evaluation mode.
+    """
 
     if verbose:
         print(f"Loading checkpoint from: {model_load_path}")
@@ -122,9 +132,7 @@ def load_model(
 
 
 def test(
-    # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
     image_path=os.path.join("readme_images", "Randii.png"),
-    # image_path=os.path.join("test", "images", "02032021_221508_0001.png"),
     model_load_path=os.path.join("models", "checkpoint_best.pth"),
     image_size_trained=settings.IMAGE_SIZE,
     preloaded_model=None,
@@ -220,6 +228,6 @@ def test(
 
 if __name__ == "__main__":
     test(
-        # model_load_path="32_filters_models/checkpoint_epoch_20.pth"
-        model_load_path="model_milestones/128_filters_checkpoint_5.pth"
+        model_load_path=os.path.join("models", "64_checkpoint_best.pth"),
+        image_path=os.path.join("readme_images", "Randii.png"),
     ).show()
