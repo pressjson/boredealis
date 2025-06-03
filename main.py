@@ -97,7 +97,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     title = f.read()
     console.print(title, style="bold green")
     console.print(
-        "[italics]A system for enhancing videos of the Aurora Borealis[/italics]",
+        "[italic]A system for enhancing videos of the Aurora Borealis[/italic]",
         style="white",
     )
     console.print()
@@ -161,7 +161,6 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     if argv_3:
         response = argv_3
     else:
-        console.print("*" * 50)
         while True:
             response = console.input(
                 f"[green]What size model do you want to use?[/green][blue] {VALID_MODEL_SIZES} [/blue]\n"
@@ -170,6 +169,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
                 console.print("Error: not a valid model size", style="red")
                 continue
             break
+        console.print("*" * 50)
 
     model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
     if not os.path.exists(model_path):
@@ -177,7 +177,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
             "Error: model path does not exist. Exiting . . .", style="bold red"
         )
         sys.exit(-1)
-    if response > str(64):
+    if int(response) > 64:
         console.print(
             "Warning: running large models is very VRAM intensive.", style="yellow"
         )
@@ -197,7 +197,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     console.print("Converting the video into images . . .", style="green")
     ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
 
-    model = test.load_model(model_path, verbose=False)
+    model = test.load_model(model_path, verbose=True)
     console.print("Upscaling images . . .", style="green")
     for image in track(os.listdir(tmp_original_images)):
         image_path = os.path.join(tmp_original_images, image)
