@@ -100,9 +100,26 @@ It's pretty incredible how much easier the aurora is to see.
 
 * Installing
 
-1. ~git clone https://github.com/pressjson/boredealis~ wherever.
-2. ~cd~ into the newly created directory.
-3. Download the models from the releases page, and place them in a new directory in the project root called ~model_milestones~.
+I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, I do not know if any of this works on Windows. I am almost positive that my bash does not, because Windows uses ~\~ for directory navigation and Unix (Linux, macOS) use ~/~ for directory navigation.
+
+@TODO: make this work on Windows.
+
+** Prerequisites
+
+- Python3
+- [[https://ffmpeg.org/][FFmpeg]]
+  - On macOS, FFmpeg is not natively installed. Install FFmpeg via [[https://brew.sh/][Homebrew]].
+  - On Windows, just use WSL. It's now available on GitHub if you are that kind of nerd. Otherwise, just [[https://learn.microsoft.com/en-us/windows/wsl/install][install WSL]] and be forever happy.
+- [[https://www.gnu.org/software/wget/][Wget]]
+  - On macOS, Wget is not natively installed. Install Wget via [[https://brew.sh/][Homebrew]].
+
+@TODO: migrate to curl, which is natively installed on macOS.
+
+** Actually installing
+
+- ~git clone https://github.com/pressjson/boredealis~ wherever.
+- ~cd~ into the newly created directory.
+- Download the models from the releases page, and place them in a new directory in the project root called ~model_milestones~.
 
 Then, you have two options:
 

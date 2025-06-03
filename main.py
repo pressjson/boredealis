@@ -29,6 +29,7 @@ from rich.progress import track
 import os
 import re
 import time
+import torch
 
 # These are the slow ones to import
 
@@ -91,7 +92,17 @@ def response_loop(initial_message, options=["y", "n"]):
         )
 
 
-def main(argv_1=None, argv_2=None, argv_3=None):
+def main(
+    argv_1=None,
+    argv_2=None,
+    argv_3=None,
+    debug=False,
+    device="cuda" if torch.cuda.is_available() else "cpu",
+):
+    # For macOS
+    if torch.backends.mps.is_available():
+        device = "mps"
+
     # print title
     f = open(resource_path("title.txt"), "r")
     title = f.read()
@@ -169,6 +180,7 @@ def main(argv_1=None, argv_2=None, argv_3=None):
                 console.print("Error: not a valid model size", style="red")
                 continue
             break
+        console.print()
         console.print("*" * 50)
 
     model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
@@ -197,12 +209,12 @@ def main(argv_1=None, argv_2=None, argv_3=None):
     console.print("Converting the video into images . . .", style="green")
     ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
 
-    model = test.load_model(model_path, verbose=True)
+    model = test.load_model(model_path, verbose=debug, device="mps")
     console.print("Upscaling images . . .", style="green")
     for image in track(os.listdir(tmp_original_images)):
         image_path = os.path.join(tmp_original_images, image)
         filtered_image = test.test(
-            image_path=image_path, preloaded_model=model, verbose=False
+            image_path=image_path, preloaded_model=model, verbose=debug, device="mps"
         )
         match = re.match(r"(\w+)_(\d+)\.png", image)
         # print(match.group(2))

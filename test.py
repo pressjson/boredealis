@@ -136,6 +136,7 @@ def test(
     model_load_path=os.path.join("models", "checkpoint_best.pth"),
     image_size_trained=settings.IMAGE_SIZE,
     preloaded_model=None,
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     verbose=True,
 ) -> Image.Image:
     """Tests the model and returns a PIL Image.
@@ -149,7 +150,6 @@ def test(
         PIL.Image.Image if successful.
         -1 if something went wrong.
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = network.DeepUNet(  # Make sure DeepUNet is correctly imported/defined
         n_channels_in=3,
