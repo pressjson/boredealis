@@ -211,9 +211,9 @@ class RandomApplyTransforms:
         # for debugging why my computer crashes
         # return FU.to_tensor(sample)
 
-        # if random.uniform(0, 1) > self.random_threshold:
-        #     # do nothing
-        #     return TF.to_tensor(sample)
+        if random.uniform(0, 1) > self.random_threshold:
+            #     # do nothing
+            return TF.to_tensor(sample)
 
         cloud = CombineWithClouds(self.output_size)
 
@@ -380,6 +380,7 @@ def train_model(
     DATA_DIR=os.path.join("data", "images"),
     num_epochs=settings.NUM_EPOCHS,
     previous_model_path=None,
+    debug=False,
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -470,16 +471,17 @@ def train_model(
         pin_memory=(device.type == "cuda"),
     )
 
-    # print("Visualizing a sample from training data...")
-    # sample_inputs, sample_targets = next(iter(train_dataloader))
-    # # output_tensor * 0.5 + 0.5
-    # show_tensor_image(
-    #     (sample_inputs[0] * 0.5 + 0.5).cpu()
-    # )  # Show first cloudy image in batch
-    # show_tensor_image(
-    #     (sample_targets[0] * 0.5 + 0.5).cpu()
-    # )  # Show first clear image in batch
-    # return -1
+    if debug == True:
+        print("Visualizing a sample from training data...")
+        sample_inputs, sample_targets = next(iter(train_dataloader))
+        # output_tensor * 0.5 + 0.5
+        show_tensor_image(
+            (sample_inputs[0] * 0.5 + 0.5).cpu()
+        )  # Show first cloudy image in batch
+        show_tensor_image(
+            (sample_targets[0] * 0.5 + 0.5).cpu()
+        )  # Show first clear image in batch
+        return -1
 
     if not os.path.exists(settings.MODEL_SAVE_PATH):
         os.mkdir(settings.MODEL_SAVE_PATH)
@@ -583,16 +585,6 @@ def train_model(
             ), targets.to(
                 f"cuda:{settings.DEVICE_IDS[0]}" if settings.USE_DEVICE_IDS else device
             )
-            # print("Visualizing a sample from training data...")
-            # sample_inputs, sample_targets = next(iter(train_dataloader))
-            # # output_tensor * 0.5 + 0.5
-            # show_tensor_image(
-            #     (sample_inputs[0] * 0.5 + 0.5).cpu()
-            # )  # Show first cloudy image in batch
-            # show_tensor_image(
-            #     (sample_targets[0] * 0.5 + 0.5).cpu()
-            # )  # Show first clear image in batch
-            # return -1
 
             # show_tensor_image(inputs[0])
             # show_tensor_image(targets[0])
@@ -623,10 +615,17 @@ def train_model(
                 print(
                     f"  Batch {i+1}/{len(train_dataloader)} | Train Loss: {loss.item():.4f} | Time: {batch_time:.2f}s"
                 )
-                # for debugging
-                # break
+            if (
+                (i + 1) >= settings.MAX_EPOCH_TRAIN_SIZE
+                and settings.MAX_EPOCH_TRAIN_SIZE != -1
+            ):
+                break
 
-        epoch_train_loss = running_loss / len(train_dataset)
+        epoch_train_loss = running_loss / (
+            len(train_dataset)
+            if settings.MAX_EPOCH_TRAIN_SIZE == -1
+            else settings.MAX_EPOCH_TRAIN_SIZE
+        )
         print(f"Epoch {epoch+1} [Train] Avg Loss: {epoch_train_loss:.4f}")
 
         model.eval()
@@ -724,5 +723,6 @@ def show_tensor_image(tensor):
 if __name__ == "__main__":
     train_model(
         DATA_DIR=os.path.join("data", "images"),
-        # previous_model_path=os.path.join("models", "64_checkpoint_best.pth")
+        previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
+        debug=False,
     )

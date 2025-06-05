@@ -12,7 +12,8 @@ USE_DEVICE_IDS = False
 DEVICE_IDS = [0, 1, 2, 3]
 # Probablity that the random transforms *do* get applied
 RANDOM_APPLY_THRESHOLD = 0.5
-NOISE_STRENGTH = 0
+NOISE_STRENGTH = 0.05
+MAX_EPOCH_TRAIN_SIZE = -1
 # n * data_size for training, (1 - n) * data_size for validation
 VALUE_SPLIT = 0.8
 LEARNING_RATE = 1e-3
@@ -22,7 +23,7 @@ STEP_SIZE = 10
 GAMMA = 0.5
 # Transparency upper and lower bounds for the cloud transform
 ALPHA_LOWER_BOUND = 0.1
-ALPHA_UPPER_BOUND = 0.8
+ALPHA_UPPER_BOUND = 0.9
 # Tweaking START_FILTERS can crash the GPU, since increasing this dramatically increases VRAM usage
 # This also makes the model more deep, so find a balance
 START_FILTERS = 32

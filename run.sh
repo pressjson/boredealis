@@ -5,7 +5,7 @@
 # done
 
 github_models_url_base="https://github.com/pressjson/boredealis/releases/download/Models"
-filters=(64 128)
+filters=(32 64 128)
 extension="_checkpoint_best.pth"
 models_dir="models"
 if [[ ! -d "$models_dir" ]]; then
