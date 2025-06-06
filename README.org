@@ -110,6 +110,7 @@ I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, 
 - [[https://ffmpeg.org/][FFmpeg]]
   - On macOS, FFmpeg is not natively installed. Install FFmpeg via [[https://brew.sh/][Homebrew]].
   - On Windows, just use WSL. It's now available on GitHub if you are that kind of nerd. Otherwise, just [[https://learn.microsoft.com/en-us/windows/wsl/install][install WSL]] and be forever happy.
+    - If you want to use Windows, you will have to deal with Windows' weirdness in the terminal. As such, you will be building this project manually, and the shell script will not work.
 - [[https://www.gnu.org/software/wget/][Wget]]
   - On macOS, Wget is not natively installed. Install Wget via [[https://brew.sh/][Homebrew]].
 
@@ -130,6 +131,18 @@ Then, you have two options:
 ~run.sh~ will also download the models in the releases tab into the models folder.
 
 This does not support clicking on ~run.sh~ and having a new terminal window popping up, as the way to pop up a new terminal window is not standard, and I do not want to go through the pain of making a bash script to check every terminal emulator. And no, I will not be making a GUI.
+
+If you want to have CUDA enabled (i.e. on Linux), you will have to do the following:
+
+#+begin_src shell
+source venv/bin/activate # if not in the virtual enviornment already
+pip3 uninstall torch torchaudio torchvision
+# Use the appropriate command from https://pytorch.org/get-started/locally/ for your system
+# For me, I use the following since I have an AMD graphics card with ROCm:
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3
+#+end_src
+
+PyTorch on macOS already comes with ~mps~, so no need to install anything fancy.
 
 *** Install the packages manually
 
@@ -213,6 +226,12 @@ For now, pass the image into ~test.py~ as a custom argument, i.e. ~test(image_pa
 This is only necessary for /training/ models. If you just want to use the models, then this has no effect.
 
 Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not change the image size. This should fix the warnings from appearing.
+
+If you want to be super lazy and never change any settings and just want the noises to go away, you can make a symbolic link between ~settings.py~ and ~local_settings.py~:
+
+#+begin_src shell
+ln -s settings.py local_settings.py
+#+end_src
 
 @FIXME: there is no default model. As such, ~test.py~ will not work. The models are downloadable in the releases tab.
 

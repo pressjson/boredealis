@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import sys
+from rich.console import Console
+
+console = Console()
 
 # File arguments
 # Up here to make -h and -v snappy
@@ -8,23 +11,76 @@ import sys
 argv_1 = None
 argv_2 = None
 argv_3 = None
-if len(sys.argv) >= 2:
-    argv_1 = sys.argv[1]
-    if argv_1.lower().endswith("help") or argv_1 == "-h":
+debug = False
+remove_tmp = True
+
+for arg in sys.argv[1:]:
+    # help
+    if arg.endswith("help") or arg == "-h":
         f = open("help.txt", "r")
         help_file = f.read()
         print(help_file)
         sys.exit(0)
-    if argv_1.lower().endswith("version") or argv_1 == "-v":
+    # version
+    elif arg.endswith("version") or arg == "-v":
         print("This doesn't have versions, lmao")
         print("But this is a prerelease version")
         sys.exit(0)
-if len(sys.argv) >= 3:
-    argv_2 = sys.argv[2]
-if len(sys.argv) >= 4:
-    argv_3 = sys.argv[3]
+    # debug mode
+    elif arg.endswith("debug") or arg == "-d":
+        debug = True
+    # remove tmp
+    elif arg.startswith("--remove-tmp"):
+        remove_tmp = True if arg.lower().endswith("true") else False
+        # print(remove_tmp)
+    elif arg == "-r" or arg == "-rt":
+        remove_tmp = False
+        # print(remove_tmp)
+    # argument flags
+    elif arg.startswith("--input="):
+        argv_1 = arg[8:]
+        # print(argv_1)
+    elif arg.startswith("-i="):
+        argv_1 = arg[3:]
 
-from rich.console import Console
+    elif arg.startswith("--output="):
+        argv_2 = arg[9:]
+        # print(argv_2)
+    elif arg.startswith("-o="):
+        argv_2 = arg[3:]
+
+    elif arg.startswith("--filters="):
+        argv_3 = int(arg[10:])
+        # print(argv_3)
+    elif arg.startswith("-f="):
+        argv_3 = arg[3:]
+
+    # I am so sorry to the else-if gods, but I don't want to refactor this
+    # @TODO: refactor this
+    # catch all
+    else:
+        console.print(
+            f"Error: {arg} is not a valid flag. Please check --help for what flags are valid",
+            style="bold red",
+        )
+        sys.exit(1)
+
+# if len(sys.argv) >= 2:
+#     argv_1 = sys.argv[1]
+#     if argv_1.lower().endswith("help") or argv_1 == "-h":
+#         f = open("help.txt", "r")
+#         help_file = f.read()
+#         print(help_file)
+#         sys.exit(0)
+#     if argv_1.lower().endswith("version") or argv_1 == "-v":
+#         print("This doesn't have versions, lmao")
+#         print("But this is a prerelease version")
+#         sys.exit(0)
+# if len(sys.argv) >= 3:
+#     argv_2 = sys.argv[2]
+# if len(sys.argv) >= 4:
+#     argv_3 = sys.argv[3]
+
 from rich.progress import track
 import os
 import re
@@ -37,18 +93,20 @@ import ffmpeg_wrapper
 import test
 import constructor
 
-console = Console()
 PATIENCE = 10
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
 VALID_MODEL_SIZES = ["32", "64", "128", "192"]
 
 
 def resource_path(relative_path):
+    """Weirdness for trying to package, too much effort to remove.
+
+    @TODO: remove.
+    """
     try:
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
-
     return os.path.join(base_path, relative_path)
 
 
@@ -85,7 +143,7 @@ def response_loop(initial_message, options=["y", "n"]):
             return response.lower()
         if i >= PATIENCE and PATIENCE != -1:
             console.print("I give up.", style="bold red")
-            sys.exit(-1)
+            sys.exit(1)
         i = i + 1
         response = console.input(
             f"[red]Not a valid response. Please only input[/red] [blue]{options}[/blue]\n"
@@ -125,7 +183,7 @@ def main(
         video_path = argv_1
         if not os.path.exists(video_path):
             console.print(f"{video_path} is not a valid video path", style="red")
-            sys.exit(-1)
+            sys.exit(1)
     else:
         while True:
             video_path = console.input(
@@ -167,7 +225,6 @@ def main(
             )
 
     # get model size
-    # @TODO: make 32, 64, and 128 models available. And have them good
 
     if argv_3:
         response = argv_3
@@ -188,14 +245,14 @@ def main(
         console.print(
             "Error: model path does not exist. Exiting . . .", style="bold red"
         )
-        sys.exit(-1)
+        sys.exit(1)
     if int(response) > 64:
         console.print(
             "Warning: running large models is very VRAM intensive.", style="yellow"
         )
         console.print("If things go wrong, it is not my fault.", style="yellow")
 
-    # make temporary directories
+    # Make temporary directories
     start_time = time.time()
     tmp = resource_path("tmp")
     tmp_original_images = resource_path(os.path.join("tmp", "original_images"))
@@ -225,8 +282,9 @@ def main(
     console.print("Putting images back together . . .", style="green")
     constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
 
-    console.print("Cleaning up . . .", style="green")
-    rmdir(tmp)
+    if remove_tmp:
+        console.print("Cleaning up . . .", style="green")
+        rmdir(tmp)
 
     console.print(
         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"

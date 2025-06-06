@@ -382,6 +382,21 @@ def train_model(
     previous_model_path=None,
     debug=False,
 ):
+    """Training loop for training a model.
+
+    Just run python network.py. Please.
+    Config this with settings.py or local_settings.py.
+    All of the args should be self explanatory.
+
+    Args:
+        IMG_CHANNELS_IN (int)
+        NUM_CLASSES_OUT (int)
+        START_FILTERS (int): configured in settings
+        DATA_DIR (str)
+        num_epochs (int): configured in settings
+        previous_model_path (str)
+        debug (bool): exits the loop early for displaying a sample of target and training data
+    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 

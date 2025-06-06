@@ -125,6 +125,8 @@ def load_model(
         model.load_state_dict(new_state_dict)
     else:
         model.load_state_dict(state_dict)
+    if verbose:
+        print(f"Model was trained to epoch {checkpoint["epoch"]}.")
 
     model = model.to(device)
     model.eval()  # Set model to evaluation mode

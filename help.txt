@@ -1,3 +1,15 @@
-Usage: boredealis [input file name | help] [output file name] [model filters]
+Usage: boredealis [FLAGS]
 
-The arguments are available to skip the dialog options.
+Main usage:
+    -i=, --input=       path to input file
+    -o=, --output=      path to output file
+    -f=, --filters=     number of filters desired
+
+Other useful tidbits:
+    -h, --help          prints this help message
+    -v, --version       prints the version number, which for now is a cocky message
+    -d, --debug         has the program print useful information
+                           Sometimes too much information
+    -r, --remove-tmp    does not remove the temporary directory on completion
+    --remove-tmp=       sets the value of remove-tmp to true or false
+    -rt                 same as -r
