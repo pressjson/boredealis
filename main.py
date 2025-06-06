@@ -209,12 +209,12 @@ def main(
     console.print("Converting the video into images . . .", style="green")
     ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
 
-    model = test.load_model(model_path, verbose=debug, device="mps")
+    model = test.load_model(model_path, verbose=debug, device=device)
     console.print("Upscaling images . . .", style="green")
     for image in track(os.listdir(tmp_original_images)):
         image_path = os.path.join(tmp_original_images, image)
         filtered_image = test.test(
-            image_path=image_path, preloaded_model=model, verbose=debug, device="mps"
+            image_path=image_path, preloaded_model=model, verbose=debug, device=device
         )
         match = re.match(r"(\w+)_(\d+)\.png", image)
         # print(match.group(2))
