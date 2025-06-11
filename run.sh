@@ -6,7 +6,7 @@
 
 on_exit() {
     echo "Caught a signal. Cleaning up real quick . . ."
-    rm -rf -- "tmp"
+    # rm -rf -- "tmp"
 }
 
 trap on_exit SIGINT SIGHUP SIGQUIT SIGILL SIGABRT SIGFPE SIGSEGV SIGPIPE SIGALRM SIGTERM
@@ -41,6 +41,7 @@ elif [[ ! -d "$venv_base" ]]; then
     python3 -m venv venv
     . "$path_to_venv"
     pip install -r requirements.txt
+    echo "If you want to use CUDA/ROCm, uninstall torch torchaudio torchvision and install directly from PyTorch."
 else
     echo "Activating virtual enviornment."
     . "$path_to_venv"

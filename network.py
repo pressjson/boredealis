@@ -8,11 +8,13 @@ import torch.nn.functional as F  # Needed for GELU in TransformerEncoderLayer
 import torchvision.transforms.functional as TF
 import torch.optim as optim
 from torchvision import transforms
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 import noise
 import numpy
 import time
 import random
+
+import cloud_colors
 
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
@@ -48,18 +50,30 @@ class ImageDataset(Dataset):
 # google gemini pro 2.5 advanced code
 # edited by me
 
+def hex_to_rgb(hex):
+    """Takes a hex string and returns the corresponding RGB tuple.
+
+    From https://www.30secondsofcode.org/python/s/hex-to-rgb/
+
+    Args:
+        hex (str): a hex tuple, formatted AABBCC.
+
+    Returns:
+        int tuple, formatted (AA, BB, CC) but converted to the corresponding integer value.
+    """
+    return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))
 
 def generate_perlin_noise_image(
     size,
     lower_bound,
     upper_bound,
-    scale=random.uniform(20.0, 100.0),
+    scale=random.uniform(30.0, 500.0),
     octaves=random.randint(2, 8),
     persistence=0.5,
     lacunarity=2.0,
 ):
     world = numpy.zeros((size, size))
-    noise_base = random.randint(0, 10000)
+    noise_base = random.randint(1, 10000)
     for x in range(size):
         for y in range(size):
             world[x][y] = noise.pnoise2(
@@ -118,6 +132,7 @@ def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
     """
 
     radius = 250
+    vertical_offset = 15
     width, height = pil_image.size  # Should be 608, 608
 
     # Ensure the image has an alpha channel for transparency
@@ -135,9 +150,9 @@ def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
 
     # Bounding box coordinates (left, top, right, bottom)
     left = center_x - radius
-    top = center_y - radius
+    top = center_y - radius - vertical_offset
     right = center_x + radius
-    bottom = center_y + radius
+    bottom = center_y + radius - vertical_offset
 
     # Draw a white (opaque) circle on the black mask
     draw.ellipse((left, top, right, bottom), fill=255)  # 255 is white in 'L' mode
@@ -152,22 +167,55 @@ def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
 
 class CombineWithClouds:
     def __init__(self, output_size):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.output_size = output_size
 
     def __call__(self, main_image):
-        # Takes a pipeline tensor, turns it *back* into an image, combines it with a perlin noise, then back into a tensor
-        # There has to be a better way, but this works, I guess
-        # if type(main_image) != Image:
-        #     main_image = FU.to_pil_image(main_image)
-
-        # @TODO: when there is a file of cloud hex values, randomly pick two hex values and make them tuples
         main_image = main_image.convert("RGBA")
-        lower = random.randint(0, 130)
-        upper = random.randint(150, 255)
-        lower_bound = (lower, lower, lower)
-        upper_bound = (upper, upper, upper)
+        # Using static grayscale clouds
+        # lower = random.randint(0, 130)
+        # upper = random.randint(150, 255)
+
+        # Using a file of cloud values
+        # lower_bound = hex_to_rgb(random.choice(cloud_colors.LOWER_BOUNDS))
+        # upper_bound = hex_to_rgb(random.choice(cloud_colors.UPPER_BOUNDS))
+        # print(f"Lower bound = {lower_bound}")
+        # print(f"Upper bound = {upper_bound}")
         # print(f"Main image: {main_image}")
+
+        # Using the pixels in the image plus a grey
+        # relies on randomness to eventually pick a valid pixel
+        lower_bound = [0, 0, 0]
+        upper_bound = [255, 255, 255]
+        sampling_image = crop_to_center_circle(main_image)
+        # Pick lower bound
+        while True:
+            random_coordinates = (random.randint(0, main_image.size[0] - 1), random.randint(0, main_image.size[0] - 1))
+            lower_bound = list(sampling_image.getpixel(random_coordinates))
+            if not lower_bound[3] == 0:
+                cloud_dimness = random.randint(20, 100)
+                for i in range(len(lower_bound)):
+                    lower_bound[i] = lower_bound[i] - cloud_dimness if lower_bound[i] > cloud_dimness else 0
+                # print(lower_bound)
+                break
+        # Pick upper bound
+        while True:
+            random_coordinates = (random.randint(0, main_image.size[0] - 1), random.randint(0, main_image.size[0] - 1))
+            upper_bound = list(sampling_image.getpixel(random_coordinates))
+            if not upper_bound[3] == 0:
+                upper_bound[3] = 0
+                # print(f"Input list: {upper_bound}")
+                cloud_brightness = random.randint(50, 150)
+                for i in range(len(upper_bound)):
+                    # print(upper_bound[i])
+                    upper_bound[i] = upper_bound[i] + cloud_brightness if upper_bound[i] < (255 - cloud_brightness) else 255
+                    # print(upper_bound[i])
+                break
+
+        lower_bound = tuple(lower_bound[:3])
+        # print(upper_bound)
+        upper_bound = tuple(upper_bound[:3])
+        # print(f"Output tuple: {upper_bound}")
 
         alpha_lower_bound = settings.ALPHA_LOWER_BOUND
         alpha_upper_bound = settings.ALPHA_UPPER_BOUND
@@ -192,6 +240,10 @@ class CombineWithClouds:
         cloud_layer = Image.merge("RGBA", (r, g, b, final_alpha))
 
         combined_image = Image.alpha_composite(main_image, cloud_layer)
+        blurred_image = combined_image.filter(ImageFilter.GaussianBlur(radius = random.randint(0, 4)))
+        blurred_center = crop_to_center_circle(blurred_image)
+
+        combined_image = Image.alpha_composite(main_image, blurred_center)
 
         return combined_image.convert("RGB")
 
@@ -212,7 +264,7 @@ class RandomApplyTransforms:
         # return FU.to_tensor(sample)
 
         if random.uniform(0, 1) > self.random_threshold:
-            #     # do nothing
+            # do nothing
             return TF.to_tensor(sample)
 
         cloud = CombineWithClouds(self.output_size)

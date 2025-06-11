@@ -227,6 +227,12 @@ def test(
 
     return output_image
 
+def save_test(model_load_path=None, image_path=None, save_path=None):
+    if not save_path:
+        print("Error: no save path specified.")
+        return -1
+    test(model_load_path=model_load_path, image_path=image_path).save(save_path)
+
 
 if __name__ == "__main__":
     test(

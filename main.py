@@ -8,10 +8,11 @@ console = Console()
 # File arguments
 # Up here to make -h and -v snappy
 
-argv_1 = None
-argv_2 = None
-argv_3 = None
+arg_input = None
+arg_output = None
+arg_filters = None
 debug = False
+arg_custom_model_path = None
 remove_tmp = True
 
 for arg in sys.argv[1:]:
@@ -38,22 +39,26 @@ for arg in sys.argv[1:]:
         # print(remove_tmp)
     # argument flags
     elif arg.startswith("--input="):
-        argv_1 = arg[8:]
+        arg_input = arg[8:]
         # print(argv_1)
     elif arg.startswith("-i="):
-        argv_1 = arg[3:]
+        arg_input = arg[3:]
 
     elif arg.startswith("--output="):
-        argv_2 = arg[9:]
+        arg_output = arg[9:]
         # print(argv_2)
     elif arg.startswith("-o="):
-        argv_2 = arg[3:]
+        arg_output = arg[3:]
 
     elif arg.startswith("--filters="):
-        argv_3 = int(arg[10:])
+        arg_filters = int(arg[10:])
         # print(argv_3)
     elif arg.startswith("-f="):
-        argv_3 = arg[3:]
+        arg_filters = arg[3:]
+    elif arg.startswith("--custom-model-path="):
+        arg_custom_model_path = arg[20:]
+    elif arg.startswith("-c="):
+        arg_custom_model_path = arg[3:]
 
     # I am so sorry to the else-if gods, but I don't want to refactor this
     # @TODO: refactor this
@@ -151,11 +156,10 @@ def response_loop(initial_message, options=["y", "n"]):
 
 
 def main(
-    argv_1=None,
-    argv_2=None,
-    argv_3=None,
-    debug=False,
     device="cuda" if torch.cuda.is_available() else "cpu",
+    # All of the other variables are defined at the top of the file
+    # Smart? Probably not, it hurts my C brain
+    # Does it work? Yes.
 ):
     # For macOS
     if torch.backends.mps.is_available():
@@ -179,8 +183,8 @@ def main(
 
     # get video path
     video_path = ""
-    if argv_1:
-        video_path = argv_1
+    if arg_input:
+        video_path = arg_input
         if not os.path.exists(video_path):
             console.print(f"{video_path} is not a valid video path", style="red")
             sys.exit(1)
@@ -211,8 +215,8 @@ def main(
                     continue
 
             break
-    if argv_2:
-        save_path = argv_2
+    if arg_output:
+        save_path = arg_output
     else:
         save_path = console.input(
             "[green]Where do you want your video saved as (include path and extension)?[/green]\n"
@@ -226,8 +230,11 @@ def main(
 
     # get model size
 
-    if argv_3:
-        response = argv_3
+    if arg_filters:
+        response = arg_filters
+    elif arg_custom_model_path:
+        # do nothing
+        pass
     else:
         while True:
             response = console.input(
@@ -241,6 +248,8 @@ def main(
         console.print("*" * 50)
 
     model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
+    if arg_custom_model_path:
+        model_path = arg_custom_model_path
     if not os.path.exists(model_path):
         console.print(
             "Error: model path does not exist. Exiting . . .", style="bold red"
@@ -291,7 +300,7 @@ def main(
     )
 
 
-main(argv_1=argv_1, argv_2=argv_2, argv_3=argv_3)
+main()
 # my_rmdir("test_videos")
 # if response_loop("Testing", ["a"]):
 #     print("success!")

@@ -20,7 +20,7 @@ So vision transformers are really meant for image classification. Time to learn 
 5. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
 6. What about a bootstrap script?
 
-The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
+The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][Perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
 ** Randy and Randii
 
@@ -30,13 +30,27 @@ Randy is the official mascot of this project. Randy is the result of synthetic c
 #+NAME: Randy
 [[./readme_images/Randy.png]]
 
+** Initial improvements: cropping
+
 Unfortunately, Randy was not up to the task for training the model, as Randy has the issue of covering the whole image. Thus, Randy's wife, Randii, stepped in to fill the gap. Why is she named Randii? I think you can figure it out.
 
 #+CAPTION: Randii
 #+NAME: Randii
 [[./readme_images/Randii.png]]
 
+** Improving the clouds further: color and blur
+
+Unfortunately, Ranii has shortcomings. Chiefly, she does not properly simulate cloud hazing, where clouds blur and scatter the light source behind it. Additionally, clouds are not just black and white, but rather a color based on the source of the light behind it. Randthree improves on his parents Randy and Randii by using two random colors within the crop circle, adding a boost in brightness to one and subtracting from the other, and sets those as the lower and upper bounds of the Perlin noise generated clouds. I do not want to write out the algorithm used here formally. Check the code, or the paper whenever that gets done.
+
+#+CAPTION: Randthree
+#+NAME: Randthree
+[[file:readme_images/improved_synthetic_clouds.png]]
+
+Initially, I wanted to make one where the bounds get randomly selected from a file of hex colors, but this generated weird instances of magenta clouds on perfectly blue days, where there is no magenta in the scene (which /can/ happen naturally, from a sunset, for example).
+
 * Results on still images
+
+NOTE: these results were from Randii.
 
 ** With synthetic clouds
 
@@ -107,6 +121,7 @@ I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, 
 ** Prerequisites
 
 - Python3
+- A valid C compiler, like [[https://gcc.gnu.org/][GCC]]
 - [[https://ffmpeg.org/][FFmpeg]]
   - On macOS, FFmpeg is not natively installed. Install FFmpeg via [[https://brew.sh/][Homebrew]].
   - On Windows, just use WSL. It's now available on GitHub if you are that kind of nerd. Otherwise, just [[https://learn.microsoft.com/en-us/windows/wsl/install][install WSL]] and be forever happy.
@@ -132,7 +147,7 @@ Then, you have two options:
 
 This does not support clicking on ~run.sh~ and having a new terminal window popping up, as the way to pop up a new terminal window is not standard, and I do not want to go through the pain of making a bash script to check every terminal emulator. And no, I will not be making a GUI.
 
-If you want to have CUDA enabled (i.e. on Linux), you will have to do the following:
+If you want to have CUDA enabled, you will have to do the following:
 
 #+begin_src shell
 source venv/bin/activate # if not in the virtual enviornment already
@@ -143,6 +158,8 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 #+end_src
 
 PyTorch on macOS already comes with ~mps~, so no need to install anything fancy.
+
+There is a similar command for Windows, but I do not develop on Windows (I use Arch btw).
 
 *** Install the packages manually
 
@@ -205,7 +222,7 @@ if __name__ == "__main__":
 # will show the image
 #+end_src
 
-*Beware that the 128 filter models and greater are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
+*Beware that the 128 filter models and greater are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU (specifically its VRAM) to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
 
 ** How do I install some images/videos for testing?
 
@@ -214,6 +231,8 @@ A release containing two ~.avi~ videos and their corresponding folders of ~.png~
 Because I am a chaotic mess, these images are uniformly named within a directory, but not between directories. Just . . . beware.
 
 If you choose to use these images, you will have to change the code to whatever you use.
+
+I am /not/ allowed to distribute the full dataset, as it is private and collected in-house. Even putting up two files from it feels like I am violating some privacy laws or something.
 
 ** How do I use custom images/videos rather than the default ones with ~test.py~?
 

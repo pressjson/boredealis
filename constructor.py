@@ -42,6 +42,8 @@ def convert_directory(input_dir: str, output_name: str):
     if os.path.exists(output_name):
         print(f"Warning: {output_name} exists. Deleting {output_name}.")
         os.remove(output_name)
+    if not os.path.exists(os.path.dirname(output_name)):
+        os.mkdir(os.path.dirname(output_name))
     if not os.path.exists(input_dir):
         print(f"Error: {input_dir} does not exist.")
         return -1
