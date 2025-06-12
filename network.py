@@ -297,6 +297,7 @@ class RandomApplyTransforms:
 
 
 # VGG loss, implemented on https://github.com/crowsonkb/vgg_loss?tab=readme-ov-file
+# @TODO: refactor this to a new file
 
 
 class Lambda(nn.Module):
@@ -794,7 +795,11 @@ def train_model(
         model = model.to(device)
 
     criterion = nn.L1Loss()
-    vgg_loss = VGGLoss().to(settings.DEVICE_IDS if settings.USE_DEVICE_IDS else device)
+    vgg_loss_crit = VGGLoss().to(
+        settings.DEVICE_IDS if settings.USE_DEVICE_IDS else device
+    )
+    L1_WEIGHT = 1.0
+    VGG_WEIGHT = 0.1
 
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -830,22 +835,35 @@ def train_model(
                     device_type="cuda" if torch.cuda.is_available() else "cpu"
                 ):
                     outputs = model(inputs)
-                    loss = criterion(outputs, targets)
+                    l1_loss = criterion(outputs, targets)
+                    outputs = (outputs + 1.0) / 2.0
+                    targets = (targets + 1.0) / 2.0
+                    vgg_loss = vgg_loss_crit(
+                        outputs,
+                        vgg_loss_crit.get_features(targets),
+                        target_is_features=True,
+                    )
+                loss = l1_loss * L1_WEIGHT + vgg_loss * VGG_WEIGHT
                 scaler.scale(loss).backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
             else:  # No AMP
                 outputs = model(inputs)
-                loss = criterion(outputs, targets)
+                l1_loss = criterion(outputs, targets)
+                outputs = (outputs + 1.0) / 2.0
+                targets = (targets + 1.0) / 2.0
+                vgg_loss = vgg_loss_crit(
+                    outputs,
+                    vgg_loss_crit.get_features(targets),
+                    target_is_features=True,
+                )
+                loss = l1_loss * L1_WEIGHT + vgg_loss * VGG_WEIGHT
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
-            current_loss = vgg_loss(
-                inputs, vgg_loss.get_features(targets), target_is_features=True
-            )
 
-            running_loss += current_loss * inputs.size(0)
+            running_loss += loss.item()
 
             if (i + 1) % 20 == 0 or (i + 1) == len(train_dataloader):
                 batch_time = time.time() - batch_start_time
@@ -887,16 +905,28 @@ def train_model(
                         device_type="cuda" if torch.cuda.is_available() else "cpu"
                     ):
                         outputs = model(inputs)
-                        loss = criterion(outputs, targets)
+                        l1_loss = criterion(outputs, targets)
+                        outputs = (outputs + 1.0) / 2.0
+                        targets = (targets + 1.0) / 2.0
+                        vgg_loss = vgg_loss_crit(
+                            outputs,
+                            vgg_loss_crit.get_features(targets),
+                            target_is_features=True,
+                        )
+                        loss = l1_loss * L1_WEIGHT + vgg_loss * VGG_WEIGHT
                 else:
                     outputs = model(inputs)
-                    loss = criterion(outputs, targets)
-                # running_val_loss += loss.item() * inputs.size(0)
-                current_loss = vgg_loss(
-                    inputs, vgg_loss.get_features(targets), target_is_features=True
-                )
+                    l1_loss = criterion(outputs, targets)
+                    outputs = (outputs + 1.0) / 2.0
+                    targets = (targets + 1.0) / 2.0
+                    vgg_loss = vgg_loss_crit(
+                        outputs,
+                        vgg_loss_crit.get_features(targets),
+                        target_is_features=True,
+                    )
+                    loss = l1_loss * L1_WEIGHT + vgg_loss * VGG_WEIGHT
 
-                running_loss += current_loss * inputs.size(0)
+                running_val_loss += loss.item()
 
         epoch_val_loss = running_val_loss / len(valid_dataset)
         print(f"Epoch {epoch+1} [Val]   Avg Loss: {epoch_val_loss:.4f}")
