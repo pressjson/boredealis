@@ -17,12 +17,13 @@ So vision transformers are really meant for image classification. Time to learn 
      - one for clear data (i.e. it's unmodified) (done?), and
      - one for clouds (i.e. it's faking clouds over the same image) (Randy) (done)
 4. A script to take a video, make it a bunch of images (done), then chunks(?), then enhance (done), then reverse the process (not done)
-5. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
-6. What about a bootstrap script?
+5. Convert the input video to polar coordinates to capture only the relevant information
+6. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
+7. What about a bootstrap script?
 
 The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][Perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
-** Randy and Randii
+** Making synthetic clouds
 
 Randy is the official mascot of this project. Randy is the result of synthetic clouds and noise. Why is he named Randy? Because I am starting to go crazy.
 
@@ -40,13 +41,17 @@ Unfortunately, Randy was not up to the task for training the model, as Randy has
 
 ** Improving the clouds further: color and blur
 
-Unfortunately, Ranii has shortcomings. Chiefly, she does not properly simulate cloud hazing, where clouds blur and scatter the light source behind it. Additionally, clouds are not just black and white, but rather a color based on the source of the light behind it. Randthree improves on his parents Randy and Randii by using two random colors within the crop circle, adding a boost in brightness to one and subtracting from the other, and sets those as the lower and upper bounds of the Perlin noise generated clouds. I do not want to write out the algorithm used here formally. Check the code, or the paper whenever that gets done.
+Unfortunately, Ranii has shortcomings. Chiefly, she does not properly simulate cloud hazing, where clouds blur and scatter the light source behind it. Additionally, clouds are not just black and white, but rather a color based on the source of the light behind it. Randthree improves on his parents Randy and Randii by using two random colors within the crop circle, adding a boost in brightness to one and subtracting from the other, and sets those as the lower and upper bounds of the Perlin noise generated clouds. To simulate light scattering, a random amount of [[https://en.wikipedia.org/wiki/Gaussian_blur][Gaussian blur]] gets applied to the cloudy part of the image. I do not want to write out the algorithm used here formally. Check the code, or the paper whenever that gets done.
 
 #+CAPTION: Randthree
 #+NAME: Randthree
 [[file:readme_images/improved_synthetic_clouds.png]]
 
 Initially, I wanted to make one where the bounds get randomly selected from a file of hex colors, but this generated weird instances of magenta clouds on perfectly blue days, where there is no magenta in the scene (which /can/ happen naturally, from a sunset, for example).
+
+** Better image loss: VGG
+
+Prior to this, I used L1 Loss (the mean absolute error between each element, \(\frac{1}{N} \Sigma_{i=1}^n \left| \text{target}_{i} - \text{truth}_{i} \right|)
 
 * Results on still images
 
@@ -121,11 +126,12 @@ I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, 
 ** Prerequisites
 
 - Python3
+  - I personally develop on the edge with Python 3.13.3, but I am sure it works with older versions of Python 3.
 - A valid C compiler, like [[https://gcc.gnu.org/][GCC]]
 - [[https://ffmpeg.org/][FFmpeg]]
   - On macOS, FFmpeg is not natively installed. Install FFmpeg via [[https://brew.sh/][Homebrew]].
   - On Windows, just use WSL. It's now available on GitHub if you are that kind of nerd. Otherwise, just [[https://learn.microsoft.com/en-us/windows/wsl/install][install WSL]] and be forever happy.
-    - If you want to use Windows, you will have to deal with Windows' weirdness in the terminal. As such, you will be building this project manually, and the shell script will not work.
+    - If you want to use Windows, you will have to deal with Windows' weirdness in the terminal. As such, you will be building this project manually, and the shell script and my command syntax will not work.
 - [[https://www.gnu.org/software/wget/][Wget]]
   - On macOS, Wget is not natively installed. Install Wget via [[https://brew.sh/][Homebrew]].
 

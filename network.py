@@ -796,7 +796,7 @@ def train_model(
 
     criterion = nn.L1Loss()
     vgg_loss_crit = VGGLoss().to(
-        settings.DEVICE_IDS if settings.USE_DEVICE_IDS else device
+        settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device
     )
     L1_WEIGHT = 1.0
     VGG_WEIGHT = 0.1
