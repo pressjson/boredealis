@@ -922,22 +922,36 @@ def train_model(
                         l1_loss = criterion(outputs, targets)
                         outputs = (outputs + 1.0) / 2.0
                         targets = (targets + 1.0) / 2.0
-                        vgg_loss = vgg_loss_crit(
-                            outputs,
-                            vgg_loss_crit.get_features(targets),
-                            target_is_features=True,
-                        )
-                        loss = l1_loss * L1_WEIGHT + vgg_loss * VGG_WEIGHT
+                        if settings.USE_VGG_DEVICE:
+                            vgg_loss = vgg_loss_crit(
+                                outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
+                                vgg_loss_crit.get_features(targets.to(f"cuda:{settings.VGG_DEVICE_ID}")),
+                                target_is_features=True,
+                            )
+                        else:
+                            vgg_loss = vgg_loss_crit(
+                                outputs,
+                                vgg_loss_crit.get_features(targets),
+                                target_is_features=True,
+                            )
+                        loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
                 else:
                     outputs = model(inputs)
                     l1_loss = criterion(outputs, targets)
                     outputs = (outputs + 1.0) / 2.0
                     targets = (targets + 1.0) / 2.0
-                    vgg_loss = vgg_loss_crit(
-                        outputs,
-                        vgg_loss_crit.get_features(targets),
-                        target_is_features=True,
-                    )
+                    if settings.USE_VGG_DEVICE:
+                        vgg_loss = vgg_loss_crit(
+                            outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
+                            vgg_loss_crit.get_features(targets.to(f"cuda:{settings.VGG_DEVICE_ID}")),
+                            target_is_features=True,
+                        )
+                    else:
+                        vgg_loss = vgg_loss_crit(
+                            outputs,
+                            vgg_loss_crit.get_features(targets),
+                            target_is_features=True,
+                        )
                     loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
 
                 running_val_loss += loss.item()
