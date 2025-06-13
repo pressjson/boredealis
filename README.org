@@ -51,7 +51,11 @@ Initially, I wanted to make one where the bounds get randomly selected from a fi
 
 ** Better image loss: VGG
 
-Prior to this, I used L1 Loss (the mean absolute error between each element, \(\frac{1}{N} \Sigma_{i=1}^n \left| \text{target}_{i} - \text{truth}_{i} \right|)
+Up to this point, I was using L1 Loss (MAE). It is fast in compute time, and allows me to run a batch size of 7 per GPU on the school server (8x Nvidia A5000 GPUs) with the 128 filter model. N1 penalizes both large and small discrepancies, resulting in a "sharper" image compared to MSE Loss (which does not punish small discrepancies as heavily).
+
+However, VGG Loss ([[https://arxiv.org/pdf/1609.04802v5][Perceptual Loss]]) more closely simulates image-to-image comparisons. The math is over my head, but it uses a pretrained neural network (VGG16) to compute loss in a more accurate manner than simple pixel-per-pixel comparison. It's really fascinating stuff.
+
+The only problem with using a neural network to calculate the loss of a neural network is the amount of VRAM it takes. This means I have to dedicate one GPU to running VGG, meaning I can /only/ use seven A5000 GPUs to train. And no, I am not touching DistributedDataParallel() with a ten foot pole if I absolutely do not have to.
 
 * Results on still images
 
