@@ -8,6 +8,8 @@ NUM_EPOCHS = 100
 
 # Uses the first n images in the dataset. Set to -1 to use the whole dataset
 NUM_IMAGES = -1
+USE_VGG_DEVICE = False
+VGG_DEVICE_ID = 0
 USE_DEVICE_IDS = False
 DEVICE_IDS = [0, 1, 2, 3]
 # Probablity that the random transforms *do* get applied
