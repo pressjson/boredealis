@@ -938,7 +938,7 @@ def train_model(
                         vgg_loss_crit.get_features(targets),
                         target_is_features=True,
                     )
-                    loss = l1_loss * L1_WEIGHT + vgg_loss * VGG_WEIGHT
+                    loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
 
                 running_val_loss += loss.item()
 
