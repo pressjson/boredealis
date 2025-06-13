@@ -850,7 +850,7 @@ def train_model(
                             vgg_loss_crit.get_features(targets),
                             target_is_features=True,
                         )
-                loss = l1_loss * L1_WEIGHT + vgg_loss.to*(l1_loss.device) * VGG_WEIGHT
+                loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
                 scaler.scale(loss).backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
@@ -872,7 +872,7 @@ def train_model(
                         vgg_loss_crit.get_features(targets),
                         target_is_features=True,
                     )
-                loss = l1_loss * L1_WEIGHT + vgg_loss.to*(l1_loss.device) * VGG_WEIGHT
+                loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
