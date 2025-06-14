@@ -815,6 +815,7 @@ def train_model(
         epoch_start_time = time.time()
         model.train()
         running_loss = 0.0
+        num_batches_processed = 0
         print(f"\n--- Epoch {epoch}/{num_epochs} [Train] ---")
         batch_start_time = time.time()
 
@@ -878,6 +879,7 @@ def train_model(
                 optimizer.step()
 
             running_loss += loss.item()
+            num_batches_processed = i + 1
 
             if (i + 1) % 20 == 0 or (i + 1) == len(train_dataloader):
                 batch_time = time.time() - batch_start_time
@@ -890,11 +892,8 @@ def train_model(
             ):
                 break
 
-        epoch_train_loss = running_loss / (
-            len(train_dataset)
-            if settings.MAX_EPOCH_TRAIN_SIZE == -1
-            else settings.MAX_EPOCH_TRAIN_SIZE
-        )
+
+        epoch_train_loss = running_loss / num_batches_processed
         print(f"Epoch {epoch+1} [Train] Avg Loss: {epoch_train_loss:.4f}")
 
         model.eval()
@@ -956,7 +955,7 @@ def train_model(
 
                 running_val_loss += loss.item()
 
-        epoch_val_loss = running_val_loss / len(valid_dataset)
+        epoch_val_loss = running_val_loss / len(valid_dataloader)
         print(f"Epoch {epoch+1} [Val]   Avg Loss: {epoch_val_loss:.4f}")
 
         epoch_duration = time.time() - epoch_start_time

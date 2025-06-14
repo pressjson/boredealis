@@ -100,7 +100,7 @@ import constructor
 
 PATIENCE = 10
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
-VALID_MODEL_SIZES = ["32", "64", "128", "192"]
+VALID_MODEL_SIZES = ["32", "64", "96", "128", "192"]
 
 
 def resource_path(relative_path):
