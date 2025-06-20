@@ -232,9 +232,9 @@ def main(
 
     if arg_filters:
         response = arg_filters
+        model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
     elif arg_custom_model_path:
-        # do nothing
-        pass
+        model_path = arg_custom_model_path
     else:
         while True:
             response = console.input(
@@ -247,20 +247,23 @@ def main(
         console.print()
         console.print("*" * 50)
 
-    model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
-    if arg_custom_model_path:
-        model_path = arg_custom_model_path
+        if int(response) > 64:
+            console.print(
+                "Warning: running large models is very VRAM intensive.", style="yellow"
+            )
+            console.print("If things go wrong, it is not my fault.", style="yellow")
+
+        model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
+
     if not os.path.exists(model_path):
         console.print(
             "Error: model path does not exist. Exiting . . .", style="bold red"
         )
         sys.exit(1)
-    if int(response) > 64:
-        console.print(
-            "Warning: running large models is very VRAM intensive.", style="yellow"
-        )
-        console.print("If things go wrong, it is not my fault.", style="yellow")
 
+    filter_video(model_path, video_path, save_path, device)
+
+def filter_video(model_path, video_path, save_path, device):
     # Make temporary directories
     start_time = time.time()
     tmp = resource_path("tmp")

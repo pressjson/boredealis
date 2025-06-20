@@ -167,6 +167,14 @@ def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
     return img_rgba
 
 
+def sum_of_vals(arr):
+    """Returns the sum of all values in arr"""
+    sum = 0
+    for i in arr:
+        sum += i
+    return sum
+
+
 class CombineWithClouds:
     def __init__(self, output_size):
         # self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -198,7 +206,7 @@ class CombineWithClouds:
             )
             lower_bound = list(sampling_image.getpixel(random_coordinates))
             if not lower_bound[3] == 0:
-                cloud_dimness = random.randint(20, 100)
+                cloud_dimness = random.randint(0, 100)
                 for i in range(len(lower_bound)):
                     lower_bound[i] = (
                         lower_bound[i] - cloud_dimness
@@ -217,7 +225,7 @@ class CombineWithClouds:
             if not upper_bound[3] == 0:
                 upper_bound[3] = 0
                 # print(f"Input list: {upper_bound}")
-                cloud_brightness = random.randint(50, 150)
+                cloud_brightness = random.randint(0, 150)
                 for i in range(len(upper_bound)):
                     # print(upper_bound[i])
                     upper_bound[i] = (
@@ -229,9 +237,13 @@ class CombineWithClouds:
                 break
 
         lower_bound = tuple(lower_bound[:3])
-        # print(upper_bound)
+        # print(f"Lower tuple: {lower_bound}")
         upper_bound = tuple(upper_bound[:3])
-        # print(f"Output tuple: {upper_bound}")
+        # print(f"Upper tuple: {upper_bound}")
+        if sum_of_vals(lower_bound) > sum_of_vals(upper_bound):
+            # crude check
+            # print("Swapping . . .")
+            lower_bound, upper_bound = upper_bound, lower_bound
 
         alpha_lower_bound = settings.ALPHA_LOWER_BOUND
         alpha_upper_bound = settings.ALPHA_UPPER_BOUND
@@ -595,7 +607,7 @@ def train_model(
     IMG_CHANNELS_IN=3,
     NUM_CLASSES_OUT=3,
     START_FILTERS=settings.START_FILTERS,
-    DATA_DIR=os.path.join("data", "images"),
+    data_dir=os.path.join("data", "images"),
     num_epochs=settings.NUM_EPOCHS,
     previous_model_path=None,
     debug=False,
@@ -655,7 +667,7 @@ def train_model(
     images = []
 
     i = settings.NUM_IMAGES
-    for file in os.listdir(DATA_DIR):
+    for file in os.listdir(data_dir):
         images.append(file)
         if i != -1:
             i = i - 1
@@ -677,14 +689,14 @@ def train_model(
 
     train_dataset = ImageDataset(
         train,
-        data_dir=DATA_DIR,
+        data_dir=data_dir,
         clear_transform=clear_transform,
         cloud_transform=cloud_transform,
     )
 
     valid_dataset = ImageDataset(
         valid,
-        data_dir=DATA_DIR,
+        data_dir=data_dir,
         clear_transform=clear_transform,
         cloud_transform=cloud_transform,
     )
@@ -1021,7 +1033,7 @@ def show_tensor_image(tensor):
 
 if __name__ == "__main__":
     train_model(
-        DATA_DIR=os.path.join("data", "images"),
+        data_dir=os.path.join("data", "images"),
         # previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
         debug=False,
     )
