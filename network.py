@@ -498,12 +498,12 @@ class Up(nn.Module):
     def __init__(self, in_channels, out_channels, skip_channels):
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
-        # self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        # self.conv = DoubleConv(in_channels // 2 + skip_channels, out_channels, in_channels // 2)
-        self.up = nn.ConvTranspose2d(
-            in_channels, in_channels // 2, kernel_size=2, stride=2
-        )
-        self.conv = DoubleConv(in_channels // 2 + skip_channels, out_channels)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.conv = DoubleConv(in_channels + skip_channels, out_channels, in_channels // 2)
+        # self.up = nn.ConvTranspose2d(
+        #     in_channels, in_channels // 2, kernel_size=2, stride=2
+        # )
+        # self.conv = DoubleConv(in_channels // 2 + skip_channels, out_channels)
 
     def forward(self, x1, x2):
         # x1: from previous layer in decoder
@@ -811,7 +811,7 @@ def train_model(
         f"cuda:{settings.VGG_DEVICE_ID}" if settings.USE_VGG_DEVICE else device
     )
     L1_WEIGHT = 1.0
-    VGG_WEIGHT = 0.1
+    VGG_WEIGHT = 0.5
 
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
