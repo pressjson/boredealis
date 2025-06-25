@@ -16,3 +16,4 @@ torchaudio
 torchvision
 typing_extensions
 rich
+opencv-python

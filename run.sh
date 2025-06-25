@@ -52,7 +52,7 @@ fi
 #     exit
 # fi
 
-"python3" "main.py" "$@"
+"python3" "-u" "main.py" "$@"
 
 # deactivate venv if was in venv
 if [ "$was_in_venv" = false ]; then

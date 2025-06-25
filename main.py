@@ -97,6 +97,7 @@ import torch
 import ffmpeg_wrapper
 import test
 import constructor
+import cv_composer
 
 PATIENCE = 10
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
@@ -276,7 +277,10 @@ def filter_video(model_path, video_path, save_path, device):
     os.makedirs(tmp_original_images)
     os.makedirs(tmp_filtered_images)
     console.print("Converting the video into images . . .", style="green")
-    ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
+    # ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
+    fps = cv_composer.decompose_video(video_path, tmp_original_images, verbose=False)
+
+    # print(f"FPS: {fps}")
 
     model = test.load_model(model_path, verbose=debug, device=device)
     console.print("Upscaling images . . .", style="green")
@@ -292,7 +296,8 @@ def filter_video(model_path, video_path, save_path, device):
         filtered_image.save(os.path.join(tmp_filtered_images, save_name))
 
     console.print("Putting images back together . . .", style="green")
-    constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
+    # constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
+    cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=False)
 
     if remove_tmp:
         console.print("Cleaning up . . .", style="green")
