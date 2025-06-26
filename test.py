@@ -126,7 +126,7 @@ def load_model(
     else:
         model.load_state_dict(state_dict)
     if verbose:
-        print(f"Model was trained to epoch {checkpoint["epoch"]}.")
+        print(f"Model was trained to epoch {checkpoint['epoch']}.")
 
     model = model.to(device)
     model.eval()  # Set model to evaluation mode
@@ -221,6 +221,98 @@ def test(
     output_tensor_denorm = torch.clamp(output_tensor_denorm, 0, 1)
 
     # Convert tensor to PIL Image
+    output_image = TF.to_pil_image(output_tensor_denorm)
+    if verbose:
+        print("Inference complete. Output image generated.")
+
+    return output_image
+
+
+def test_with_ram(
+    image=None,
+    image_size_trained=settings.IMAGE_SIZE,
+    preloaded_model=None,
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    verbose=True,
+) -> Image.Image:
+    """tests the model and returns a pil image.
+
+    args:
+        image_path (str): path to the image to be converted.
+        model_load_path (str): path to the model to be loaded.
+        image_size_trained (str): should not be touched.
+
+    returns:
+        pil.image.image if successful.
+        -1 if something went wrong.
+    """
+
+    # model = network.DeepUNet(  # make sure deepunet is correctly imported/defined
+    #     n_channels_in=3,
+    #     n_classes_out=3,
+    #     start_filters=32,
+    # )
+
+    if not preloaded_model:
+        model = load_model(
+            model_load_path=model_load_path, device=device, verbose=verbose
+        )
+    else:
+        model = preloaded_model
+    # --- image preprocessing ---
+    # this should match the transformations applied to your training input (cloudy_image or clear_image before normalization)
+    # specifically resize and normalize.
+    # your training loop normalizes inputs to [-1, 1]
+    # if verbose:
+    #     print(f"model: {model}")
+    preprocess = T.Compose(
+        [
+            T.Resize(image_size_trained),  # use the size the model was trained on
+            T.ToTensor(),  # converts pil image [0,255] to tensor [0,1]
+            T.Normalize(
+                mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]
+            ),  # normalizes [0,1] to [-1,1]
+        ]
+    )
+
+    if verbose:
+        print(f"Loading and preprocessing image: {image}")
+    try:
+        if image.size != settings.IMAGE_SIZE:
+            if verbose:
+                print(
+                    f"Warning: input size {image.size} is not {settings.IMAGE_SIZE}. Resizing . . ."
+                )
+                image = image.resize(settings.IMAGE_SIZE, resample=image.bilinear)
+        input_tensor = preprocess(image)
+        input_tensor = input_tensor.unsqueeze(0)  # add batch dimension (b, c, h, w)
+        input_tensor = input_tensor.to(device)
+        if verbose:
+            print(f"Input tensor shape: {input_tensor.shape}")
+    except Exception as e:
+        print(f"Error processing image {image}: {e}")
+        return None
+
+    # --- inference ---
+    with torch.no_grad():  # disable gradient calculations for inference
+        if verbose:
+            print("Running inference...")
+        output_tensor = model(input_tensor)
+        if verbose:
+            print(
+                f"output tensor shape: {output_tensor.shape}, min: {output_tensor.min():.2f}, max: {output_tensor.max():.2f}"
+            )
+
+    # --- postprocessing ---
+    output_tensor = output_tensor.squeeze(0)
+
+    # denormalize: model outputs are in [-1, 1] (due to tanh)
+    # we need to map them back to [0, 1] for to_pil_image
+    output_tensor_denorm = output_tensor * 0.5 + 0.5
+    # clamp to ensure values are strictly in [0, 1] range after denormalization
+    output_tensor_denorm = torch.clamp(output_tensor_denorm, 0, 1)
+
+    # convert tensor to pil image
     output_image = TF.to_pil_image(output_tensor_denorm)
     if verbose:
         print("Inference complete. Output image generated.")

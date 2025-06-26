@@ -14,6 +14,7 @@ arg_filters = None
 debug = False
 arg_custom_model_path = None
 remove_tmp = True
+use_disk = False
 
 for arg in sys.argv[1:]:
     # help
@@ -57,8 +58,10 @@ for arg in sys.argv[1:]:
         arg_filters = arg[3:]
     elif arg.startswith("--custom-model-path="):
         arg_custom_model_path = arg[20:]
-    elif arg.startswith("-c="):
+    elif arg.startswith("-c=") or arg.startswith("-m="):
         arg_custom_model_path = arg[3:]
+    elif arg == "-D" or arg == "--disk":
+        use_disk=True
 
     # I am so sorry to the else-if gods, but I don't want to refactor this
     # @TODO: refactor this
@@ -91,6 +94,7 @@ import os
 import re
 import time
 import torch
+from PIL import Image
 
 # These are the slow ones to import
 
@@ -262,7 +266,10 @@ def main(
         )
         sys.exit(1)
 
-    filter_video(model_path, video_path, save_path, device)
+    if use_disk:
+        filter_video(model_path, video_path, save_path, device)
+    else:
+        filter_video_with_ram(model_path, video_path, save_path, device)
 
 def filter_video(model_path, video_path, save_path, device):
     # Make temporary directories
@@ -297,7 +304,54 @@ def filter_video(model_path, video_path, save_path, device):
 
     console.print("Putting images back together . . .", style="green")
     # constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
-    cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=False)
+    cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=debug)
+
+    if remove_tmp:
+        console.print("Cleaning up . . .", style="green")
+        rmdir(tmp)
+
+    console.print(
+        f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
+    )
+
+def filter_video_with_ram(model_path, video_path, save_path, device):
+    # same as above
+    start_time=time.time()
+    tmp = resource_path("tmp")
+    tmp_original_images = resource_path(os.path.join("tmp", "original_images"))
+    tmp_filtered_images = resource_path(os.path.join("tmp", "filtered_images"))
+    if os.path.exists(tmp):
+        console.print("Warning: tmp directory exists. Removing . . .", style="yellow")
+        rmdir(tmp)
+    os.makedirs(tmp)
+    os.makedirs(tmp_original_images)
+    os.makedirs(tmp_filtered_images)
+    console.print("Converting the video into images . . .", style="green")
+    # ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
+    fps = cv_composer.decompose_video(video_path, tmp_original_images, verbose=debug)
+
+    # load original_images into RAM
+    console.print("Loading the images into RAM . . .", style="green")
+    images = []
+    for image in os.listdir(tmp_original_images):
+        with Image.open(os.path.join(tmp_original_images, image)) as img:
+            img.load()
+            images.append((img, image))
+
+    console.print("Upscaling images . . .", style="green")
+    model = test.load_model(model_path, verbose=debug, device=device)
+    filtered_images = []
+    for image, label in track(images):
+        filtered_image = test.test_with_ram(image=image, preloaded_model=model, verbose=debug, device=device)
+        filtered_image.load()
+        filtered_images.append((filtered_image, label))
+
+    console.print("Putting images back together . . .", style="green")
+    # save to disk, then stitch b/c i don't want to rework cv_composer
+    for image, label in filtered_images:
+        image.save(os.path.join(tmp_filtered_images, label))
+
+    cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=debug)
 
     if remove_tmp:
         console.print("Cleaning up . . .", style="green")
