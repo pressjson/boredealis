@@ -26,10 +26,10 @@ fi
 venv_base="venv"
 path_to_venv="venv/bin/activate"
 
-if ! command -v ffmpeg &>/dev/null; then
-    echo "FFmpeg is not installed and in \$PATH. Exiting . . ." >&2
-    exit
-fi
+# if ! command -v ffmpeg &>/dev/null; then
+#     echo "FFmpeg is not installed and in \$PATH. Exiting . . ." >&2
+#     exit
+# fi
 
 was_in_venv=false
 # check if venv. if not, bootstrap

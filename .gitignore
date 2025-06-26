@@ -1,3 +1,4 @@
 # ignore directories with videos
 ASC_LYR/
 test/
+*.pth
