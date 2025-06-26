@@ -7,7 +7,7 @@ Using machine learning to remove clouds from a video of the Aurora Borealis.
 
 So vision transformers are really meant for image classification. Time to learn a new technology! Let's start with a U-Net and work from there.
 
-@TODO:
+@TODO: (fixed) (mostly)
 1. Go from videos to images
    - FFmpeg can do this: ~ffmpeg -i input.avi output_%04d.png~
    - Done (for now)
@@ -20,6 +20,14 @@ So vision transformers are really meant for image classification. Time to learn 
 5. Convert the input video to polar coordinates to capture only the relevant information
 6. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
 7. What about a bootstrap script?
+
+@TODO:
+1. Store images in RAM instead of writing to disk
+   - Pros: speed? I think I/O operations are making video test times incredibly long (~20 mins to filter a 2.5 minute video)
+   - Cons: memory usage. ~1.5 GB of PNG images get saved to disk just decomposing a video. Could run into memory overflow issues
+     - Solution: give a flag to use disk caching instead of RAM caching
+       - Pros: flexibility across many systems, from my PC to my shitty MacBook Air
+       - Cons: complexity.
 
 The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][Perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
@@ -59,7 +67,12 @@ The only problem with using a neural network to calculate the loss of a neural n
 
 * Results on still images
 
-NOTE: these results were from Randii.
+NOTE: these results were from Randii. The current VGG models are /significantly/ improved. However, I do not want to update the README for them. Here's a taste of what the VGG models can do:
+
+#+CAPTION: VGG 96 filters on clouds
+[[file:readme_images/vgg_96_checkpoint_best_clouds.png]]
+
+This is a 96 filter model, still decently early in training.
 
 ** With synthetic clouds
 
@@ -132,7 +145,7 @@ I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, 
 - Python3
   - I personally develop on the edge with Python 3.13.3, but I am sure it works with older versions of Python 3.
 - A valid C compiler, like [[https://gcc.gnu.org/][GCC]]
-- [[https://ffmpeg.org/][FFmpeg]]
+- [[https://ffmpeg.org/][FFmpeg]] (now optional)
   - On macOS, FFmpeg is not natively installed. Install FFmpeg via [[https://brew.sh/][Homebrew]].
   - On Windows, just use WSL. It's now available on GitHub if you are that kind of nerd. Otherwise, just [[https://learn.microsoft.com/en-us/windows/wsl/install][install WSL]] and be forever happy.
     - If you want to use Windows, you will have to deal with Windows' weirdness in the terminal. As such, you will be building this project manually, and the shell script and my command syntax will not work.
