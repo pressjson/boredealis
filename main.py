@@ -95,17 +95,19 @@ import re
 import time
 import torch
 from PIL import Image
+import numpy
 
 # These are the slow ones to import
 
-import ffmpeg_wrapper
+# import ffmpeg_wrapper
 import test
-import constructor
-import cv_composer
+# import constructor
+# import cv_composer
+import cv2
 
 PATIENCE = 10
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
-VALID_MODEL_SIZES = ["32", "64", "96", "128", "192"]
+VALID_MODEL_SIZES = ["96", "128"]
 
 
 def resource_path(relative_path):
@@ -252,12 +254,6 @@ def main(
         console.print()
         console.print("*" * 50)
 
-        if int(response) > 64:
-            console.print(
-                "Warning: running large models is very VRAM intensive.", style="yellow"
-            )
-            console.print("If things go wrong, it is not my fault.", style="yellow")
-
         model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
 
     if not os.path.exists(model_path):
@@ -269,7 +265,7 @@ def main(
     if use_disk:
         filter_video(model_path, video_path, save_path, device)
     else:
-        filter_video_with_ram(model_path, video_path, save_path, device)
+        filter_video_in_a_pipeline(model_path, video_path, save_path, device)
 
 def filter_video(model_path, video_path, save_path, device):
     # Make temporary directories
@@ -291,7 +287,7 @@ def filter_video(model_path, video_path, save_path, device):
 
     model = test.load_model(model_path, verbose=debug, device=device)
     console.print("Upscaling images . . .", style="green")
-    for image in track(os.listdir(tmp_original_images)):
+    for image in track(os.listdir(tmp_original_images), description="Processing video . . ."):
         image_path = os.path.join(tmp_original_images, image)
         filtered_image = test.test(
             image_path=image_path, preloaded_model=model, verbose=debug, device=device
@@ -314,53 +310,40 @@ def filter_video(model_path, video_path, save_path, device):
         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
     )
 
-def filter_video_with_ram(model_path, video_path, save_path, device):
-    # same as above
-    start_time=time.time()
-    tmp = resource_path("tmp")
-    tmp_original_images = resource_path(os.path.join("tmp", "original_images"))
-    tmp_filtered_images = resource_path(os.path.join("tmp", "filtered_images"))
-    if os.path.exists(tmp):
-        console.print("Warning: tmp directory exists. Removing . . .", style="yellow")
-        rmdir(tmp)
-    os.makedirs(tmp)
-    os.makedirs(tmp_original_images)
-    os.makedirs(tmp_filtered_images)
-    console.print("Converting the video into images . . .", style="green")
-    # ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
-    fps = cv_composer.decompose_video(video_path, tmp_original_images, verbose=debug)
+def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
+    start_time = time.time()
 
-    # load original_images into RAM
-    console.print("Loading the images into RAM . . .", style="green")
-    images = []
-    for image in os.listdir(tmp_original_images):
-        with Image.open(os.path.join(tmp_original_images, image)) as img:
-            img.load()
-            images.append((img, image))
+    cap = cv2.VideoCapture(video_path)
 
-    console.print("Upscaling images . . .", style="green")
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
+
     model = test.load_model(model_path, verbose=debug, device=device)
-    filtered_images = []
-    for image, label in track(images):
-        filtered_image = test.test_with_ram(image=image, preloaded_model=model, verbose=debug, device=device)
-        filtered_image.load()
-        filtered_images.append((filtered_image, label))
 
-    console.print("Putting images back together . . .", style="green")
-    # save to disk, then stitch b/c i don't want to rework cv_composer
-    for image, label in filtered_images:
-        image.save(os.path.join(tmp_filtered_images, label))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=debug)
+    for _ in track(range(total_frames), description="[green]Processing video . . .[/green]"):
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    if remove_tmp:
-        console.print("Cleaning up . . .", style="green")
-        rmdir(tmp)
+        image_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        filtered_image_pil = test.test_with_ram(image=image_pil, preloaded_model=model, device=device, verbose=debug)
+
+        filtered_frame_bgr = cv2.cvtColor(numpy.array(filtered_image_pil), cv2.COLOR_RGB2BGR)
+
+        out.write(filtered_frame_bgr)
+
+    cap.release()
+    out.release()
 
     console.print(
         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
     )
-
 
 main()
 # my_rmdir("test_videos")
