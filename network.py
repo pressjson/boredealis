@@ -810,8 +810,8 @@ def train_model(
     vgg_loss_crit = VGGLoss().to(
         f"cuda:{settings.VGG_DEVICE_ID}" if settings.USE_VGG_DEVICE else device
     )
-    L1_WEIGHT = 1.0
-    VGG_WEIGHT = 0.5
+    L1_WEIGHT = 0
+    VGG_WEIGHT = 1
 
     optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
