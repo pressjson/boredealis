@@ -15,7 +15,7 @@ for iter in {2..15}; do
     file_base="${test_model##*/}"
     file_base_noext="${file_base%.*}"
     save_path="${output_dir}${file_base_noext}_iter_${iter}.mov"
-    echo "./run.sh -i=$test_video -o=$save_path -c=$file -I=$iter"
+    echo "./run.sh -i=$test_video -o=$save_path -c=$test_model -I=$iter"
     ./run.sh -i=$test_video -o=$save_path -c=$test_model -I=$iter
 done
 
