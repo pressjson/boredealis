@@ -15,6 +15,7 @@ debug = False
 arg_custom_model_path = None
 remove_tmp = True
 use_disk = False
+iterations = 1
 
 for arg in sys.argv[1:]:
     # help
@@ -62,6 +63,10 @@ for arg in sys.argv[1:]:
         arg_custom_model_path = arg[3:]
     elif arg == "-D" or arg == "--disk":
         use_disk=True
+    elif arg.startswith("-I="):
+        iterations = int(arg[3:])
+    elif arg.startswith("--iterations="):
+        iterations = int(arg[13:])
 
     # I am so sorry to the else-if gods, but I don't want to refactor this
     # @TODO: refactor this
@@ -72,6 +77,16 @@ for arg in sys.argv[1:]:
             style="bold red",
         )
         sys.exit(1)
+
+if debug:
+    for arg in sys.argv[1:]:
+        console.print(f"Arg {arg}")
+
+
+if not iterations > 0:
+    console.print(f"Error: iterations must be larger than 1, currently at {iterations}.")
+    sys.exit(1)
+
 
 # if len(sys.argv) >= 2:
 #     argv_1 = sys.argv[1]
@@ -96,6 +111,7 @@ import time
 import torch
 from PIL import Image
 import numpy
+import cv2
 
 # These are the slow ones to import
 
@@ -103,7 +119,6 @@ import numpy
 import test
 # import constructor
 # import cv_composer
-import cv2
 
 PATIENCE = 10
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
@@ -332,9 +347,10 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
 
         image_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-        filtered_image_pil = test.test_with_ram(image=image_pil, preloaded_model=model, device=device, verbose=debug)
+        for iteration in range(0, iterations):
+            image_pil = test.test_with_ram(image=image_pil, preloaded_model=model, device=device, verbose=debug)
 
-        filtered_frame_bgr = cv2.cvtColor(numpy.array(filtered_image_pil), cv2.COLOR_RGB2BGR)
+        filtered_frame_bgr = cv2.cvtColor(numpy.array(image_pil), cv2.COLOR_RGB2BGR)
 
         out.write(filtered_frame_bgr)
 

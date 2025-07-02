@@ -6,6 +6,8 @@ Main usage:
     -f=, --filters=     number of filters desired
     -c=, --custom-model-path=
                         load a custom model. if someting goes wrong, it's your fault.
+    -I=, --iterations=  the number of iterations to have the video go through, 1 by default
+                            every extra iterations adds an additional pass of compute (i.e. -I=3 -> 3x times longer than -I=1)
 
 Other useful tidbits:
     -h, --help          prints this help message
