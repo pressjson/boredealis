@@ -20,14 +20,20 @@ So vision transformers are really meant for image classification. Time to learn 
 5. Convert the input video to polar coordinates to capture only the relevant information
 6. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
 7. What about a bootstrap script?
-
-@TODO:
-1. Store images in RAM instead of writing to disk
+8. Store images in RAM instead of writing to disk
    - Pros: speed? I think I/O operations are making video test times incredibly long (~20 mins to filter a 2.5 minute video)
    - Cons: memory usage. ~1.5 GB of PNG images get saved to disk just decomposing a video. Could run into memory overflow issues
      - Solution: give a flag to use disk caching instead of RAM caching
        - Pros: flexibility across many systems, from my PC to my shitty MacBook Air
        - Cons: complexity.
+
+@TODO: (for real) (maybe)
+1. Implement a radial transform
+   - Saves on computational efficiency
+2. Make fancier clouds
+   - Blender? Godot?
+   - Prebake data pairs
+   - Remake the dataloader to accept these data pairs
 
 The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][Perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
@@ -49,7 +55,7 @@ Unfortunately, Randy was not up to the task for training the model, as Randy has
 
 ** Improving the clouds further: color and blur
 
-Unfortunately, Ranii has shortcomings. Chiefly, she does not properly simulate cloud hazing, where clouds blur and scatter the light source behind it. Additionally, clouds are not just black and white, but rather a color based on the source of the light behind it. Randthree improves on his parents Randy and Randii by using two random colors within the crop circle, adding a boost in brightness to one and subtracting from the other, and sets those as the lower and upper bounds of the Perlin noise generated clouds. To simulate light scattering, a random amount of [[https://en.wikipedia.org/wiki/Gaussian_blur][Gaussian blur]] gets applied to the cloudy part of the image. I do not want to write out the algorithm used here formally. Check the code, or the paper whenever that gets done.
+Unfortunately, Randii has shortcomings. Chiefly, she does not properly simulate cloud hazing, where clouds blur and scatter the light source behind it. Additionally, clouds are not just black and white, but rather a color based on the source of the light behind it. Randthree improves on his parents Randy and Randii by using two random colors within the crop circle, adding a boost in brightness to one and subtracting from the other, and sets those as the lower and upper bounds of the Perlin noise generated clouds. To simulate light scattering, a random amount of [[https://en.wikipedia.org/wiki/Gaussian_blur][Gaussian blur]] gets applied to the cloudy part of the image. I do not want to write out the algorithm used here formally. Check the code, or the paper whenever that gets done.
 
 #+CAPTION: Randthree
 #+NAME: Randthree
@@ -67,14 +73,44 @@ The only problem with using a neural network to calculate the loss of a neural n
 
 * Results on still images
 
-NOTE: these results were from Randii. The current VGG models are /significantly/ improved. However, I do not want to update the README for them. Here's a taste of what the VGG models can do:
+Here are some still images, used for testing throughout this process. In order, I refer to them as "clouds," "output_0258," "Randii," and "Synthetic clouds:"
 
-#+CAPTION: VGG 96 filters on clouds
-[[file:readme_images/vgg_96_checkpoint_best_clouds.png]]
+[[file:/Users/json/Documents/boredealis/readme_images/clouds.png]]
+[[file:/Users/json/Documents/boredealis/readme_images/output_0258.png]]
+[[file:/Users/json/Documents/boredealis/readme_images/Randii.png]]
+[[file:/Users/json/Documents/boredealis/readme_images/improved_synthetic_clouds.png]]
 
-This is a 96 filter model, still decently early in training.
+It is important to note that I /do/ have the base image for the synthetic clouds, which looks like this:
 
-** With synthetic clouds
+[[file:/Users/json/Documents/boredealis/readme_images/improved_synthetic_base.png]]
+
+** Improved synthetic and VGG results
+
+Using a model with 128 start filters, using VGG loss, I get these results over the four images:
+
+[[file:/Users/json/Documents/boredealis/readme_images/clouds_epoch_60.png]]
+[[file:/Users/json/Documents/boredealis/readme_images/output_0258_epoch_60.png]][[
+file:/Users/json/Documents/boredealis/readme_images/randii_epoch_60.png]]
+[[file:/Users/json/Documents/boredealis/readme_images/synthetic_clouds_epoch_60.png]]
+
+Some important things to note:
+
+- It does make the clouds go away. Kind of.
+- It can not make data appear out of apparently thin air.
+  - This is because of how UNets work.
+  - As such, it avoids hallucination
+- It does a remarkable job with the synthetic data
+- It does not perform as well on real data
+
+My hypothesis is that stupid me uses silly synthetic clouds that are simple (and they have to be to allow for random clouds generated on the fly, avoiding overfitting a static dataset), and they do not appropriately approximate real clouds.
+
+The next step for improving would be generating actual real clouds in a physics simulation, interacting with light from the sun, moon, and aurora. This approach involves using Blender (or some other 3d rendering program, I am not writing that from scratch for the scope of this project) to generate data pairs of the aurora, both with clouds and without clouds. Unfortunately, due to the fact that render times take eons, this means prebaking a dataset (i.e. no on the fly generation). Plus, I don't want to do that right now.
+
+** Pre-VGG results
+
+The following is out of date, as it uses basic L1 loss. I keep it around because it's interesting.
+
+*** With synthetic clouds
 
 Unfortunately, I do not have the original image of Randii before she got her glow-up. However, that does not mean it is still a good demonstration.
 
@@ -90,7 +126,7 @@ And here is the result of passing Randii through a model trained after 1 epoch, 
 
 /Clearly/, the larger model is better at removing clouds than the smaller model. But what about actual clouds?
 
-** Near total coverage
+*** Near total coverage
 
 Here is a cloudy image, where the clouds obscure the aurora somewhat:
 
@@ -106,7 +142,7 @@ And with the larger model:
 
 It's not perfect. Far from ideal, actually. Compared to the original, the 128 filter model maintains colors better, but the aurora is still obscured. Some of the sky in the middle is more visible and is clearer, but it is not the same night-and-day difference that the synthetic clouds have. Granted, the 128 filter model is still /very/ early in training.
 
-** Clouds partially obscuring the Aurora
+*** Clouds partially obscuring the Aurora
 
 Here is the Aurora, barely bleeding through some clouds:
 
@@ -122,7 +158,7 @@ Kind of. But the real magic is with 128 filters:
 
 Look at how much clearer the Aurora is! It is the definition of night and day. It is not perfect, but it is still much better than the original video.
 
-** Putting a video together
+*** Putting a video together
 
 The model filters images from a video. How does a video look generated (or put back together) from the filtered images? Here is an example video:
 
@@ -136,7 +172,7 @@ It's pretty incredible how much easier the aurora is to see.
 
 * Installing
 
-I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, I do not know if any of this works on Windows. I am almost positive that my bash does not, because Windows uses ~\~ for directory navigation and Unix (Linux, macOS) use ~/~ for directory navigation.
+I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, I do not know if any of this works on Windows. I am almost positive that my bash does not, because Windows uses ~\~ for directory navigation and Unix (Linux, macOS) uses the correct ~/~ for directory navigation.
 
 @TODO: make this work on Windows.
 
