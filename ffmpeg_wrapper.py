@@ -3,6 +3,7 @@
 import os
 import ffmpeg
 import re
+from rich.progress import track
 import time
 
 
@@ -19,7 +20,7 @@ def convert_to_images(input, output_path, output_name="output"):
         os.makedirs(output_path)
     ffmpeg.input(input).output(
         os.path.join(output_path, output_name + "_%04d.png"),
-        loglevel="quiet",  # Use jpg for training
+        loglevel="quiet",  # Use png for final, as it's lossless
     ).run()
 
 
@@ -45,12 +46,12 @@ def convert_directory(input_dir, output_dir):
     dir_size = len(
         [
             name
-            for name in os.listdir("data/videos")
-            if os.path.isfile(os.path.join("data/videos", name))
+            for name in os.listdir(input_dir)
+            if os.path.isfile(os.path.join(input_dir, name))
         ]
     )
     i = 0
-    for file in os.listdir(input_dir):
+    for file in track(os.listdir(input_dir), description="Converting . . ."):
 
         base, ext = split_filename(file)
         print(
@@ -61,10 +62,30 @@ def convert_directory(input_dir, output_dir):
 
     print(f"Done converting {dir_size} files in {time.time()-start_time:.2f}s.")
 
+def convert_directory_with_subfolders(input_dir, output_dir):
+    start_time = time.time()
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for video in track(os.listdir(input_dir)):
+        base, ext = split_filename(video)
+        video_output_dir = os.path.join(output_dir, base)
+        if not os.path.exists(video_output_dir):
+            os.mkdir(video_output_dir)
+
+
+        print(
+            f"Converting {input_dir}/{base}{ext} into {video_output_dir}"
+        )  # Instead of {file} because I want to see the regex work
+        convert_to_images(os.path.join(input_dir, video), video_output_dir, output_name=base)
+
+    print(f"Done! It took {time.time()-start_time:.2f}s.")
+
 
 if __name__ == "__main__":
     # test file
     # convert_to_images(
     #     "test/02032021_221508.avi", "test/images", output_name="02032021_221508"
     # )
-    convert_directory("data/videos", "data/png_images")
+    convert_directory_with_subfolders("/run/media/pressjson/Chonker/Boredealis Files/training_videos", "/run/media/pressjson/Chonker/Boredealis Files/training_images")

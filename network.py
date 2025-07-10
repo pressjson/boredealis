@@ -663,29 +663,80 @@ def train_model(
     )
 
     # Making the datasets from data/images by default
+    # This approach combines all of the images into one dataset, which is bad because it can cause
+    # similar looking frames to be in both the training and validation set
 
-    images = []
+    # images = []
 
-    i = settings.NUM_IMAGES
-    for file in os.listdir(data_dir):
-        images.append(file)
-        if i != -1:
-            i = i - 1
-            if i == 0:
-                break
+    # i = settings.NUM_IMAGES
+    # for file in os.listdir(data_dir):
+    #     images.append(file)
+    #     if i != -1:
+    #         i = i - 1
+    #         if i == 0:
+    #             break
 
-    print(f"Found {len(images)} images")
+    # print(f"Found {len(images)} images")
 
-    if len(images) == 0:
-        raise ValueError(
-            f"No images found in {images}. Check file naming and structure."
-        )
+    # if len(images) == 0:
+    #     raise ValueError(
+    #         f"No images found in {images}. Check file naming and structure."
+    #     )
+    # print(
+    #     f"Using {int(settings.VALUE_SPLIT * len(images))} for training and {len(images) - int(settings.VALUE_SPLIT * len(images))} for validation"
+    # )
+    # random.shuffle(images)
+    # train = images[: int(settings.VALUE_SPLIT * len(images))]
+    # valid = images[int(settings.VALUE_SPLIT * len(images)) :]
+
+    # This approach uses videos decomposed into folders
+    # DATA
+    #   VIDEO_1
+    #     frame_0001.png
+    #     frame_0002.png
+    #     ...
+    #   VIDEO_2
+    #     frame_001.png
+    #     ...
+    #   ...
+
+    videos = []
+    for video in os.listdir(data_dir):
+        videos.append(video)
+
+    random.shuffle(videos)
+
+    train_videos = videos[: int(settings.VALUE_SPLIT * len(videos))]
+    valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)): ]
+
+    train = []
+    valid = []
+    for video in train_videos:
+        video = os.path.join(data_dir, video)
+        # if debug:
+        #     print(video)
+        for image in os.listdir(video):
+            image = os.path.join(video, image)
+            train.append(image)
+
+    for video in valid_videos:
+        video = os.path.join(data_dir, video)
+        for image in os.listdir(video):
+            image = os.path.join(video, image)
+            # if debug:
+            #     print(image)
+            valid.append(image)
+
+    random.shuffle(train)
+    random.shuffle(valid)
+
+    if settings.NUM_IMAGES != -1:
+        train = train[: int(settings.NUM_IMAGES * settings.VALUE_SPLIT)]
+        valid = valid[: int(settings.NUM_IMAGES * (1 - settings.VALUE_SPLIT))]
+
     print(
-        f"Using {int(settings.VALUE_SPLIT * len(images))} for training and {len(images) - int(settings.VALUE_SPLIT * len(images))} for validation"
+        f"Using {len(train)} images for training and {len(valid)} images for validation"
     )
-    random.shuffle(images)
-    train = images[: int(settings.VALUE_SPLIT * len(images))]
-    valid = images[int(settings.VALUE_SPLIT * len(images)) :]
 
     train_dataset = ImageDataset(
         train,
