@@ -12,7 +12,7 @@ on_exit() {
 trap on_exit SIGINT SIGHUP SIGQUIT SIGILL SIGABRT SIGFPE SIGSEGV SIGPIPE SIGALRM SIGTERM
 
 github_models_url_base="https://github.com/pressjson/boredealis/releases/download/Models"
-filters=(32 64 128)
+filters=(96 128)
 extension="_checkpoint_best.pth"
 models_dir="models"
 if [[ ! -d "$models_dir" ]]; then
