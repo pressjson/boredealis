@@ -19,7 +19,7 @@ def convert_to_images(input, output_path, output_name="output"):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     ffmpeg.input(input).output(
-        os.path.join(output_path, output_name + "_%04d.png"),
+        os.path.join(output_path, output_name + "_%04d.jpg"),
         loglevel="quiet",  # Use png for final, as it's lossless
     ).run()
 
@@ -88,4 +88,4 @@ if __name__ == "__main__":
     # convert_to_images(
     #     "test/02032021_221508.avi", "test/images", output_name="02032021_221508"
     # )
-    convert_directory_with_subfolders("/run/media/pressjson/Chonker/Boredealis Files/training_videos", "/run/media/pressjson/Chonker/Boredealis Files/training_images")
+    convert_directory_with_subfolders("/run/media/pressjson/Chonker/Boredealis Files/training_videos", "/run/media/pressjson/Chonker/Boredealis Files/jpg_training_images")

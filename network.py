@@ -14,7 +14,7 @@ import numpy
 import time
 import random
 
-import cloud_colors
+# import cloud_colors
 
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
@@ -309,6 +309,7 @@ class RandomApplyTransforms:
 
 
 # VGG loss, implemented on https://github.com/crowsonkb/vgg_loss?tab=readme-ov-file
+# It's under an MIT License, soooooo yeah this should be good to yoink
 # @TODO: refactor this to a new file
 
 
@@ -412,7 +413,6 @@ class VGGLoss(nn.Module):
     :attr:`reduction` can be set to ``'mean'``, ``'sum'``, or ``'none'``
     similarly to the loss functions in :mod:`torch.nn`. The default is
     ``'mean'``.
-
     :meth:`get_features()` may be used to precompute the features for the
     target, to speed up the case where inputs are compared against the same
     target over and over. To use the precomputed features, pass them in as
@@ -712,20 +712,20 @@ def train_model(
     train = []
     valid = []
     for video in train_videos:
-        video = os.path.join(data_dir, video)
+        video_path = os.path.join(data_dir, video)
         # if debug:
         #     print(video)
-        for image in os.listdir(video):
+        for image in os.listdir(video_path):
             image = os.path.join(video, image)
             train.append(image)
 
     for video in valid_videos:
-        video = os.path.join(data_dir, video)
-        for image in os.listdir(video):
+        video_path = os.path.join(data_dir, video)
+        # if debug:
+        #     print(video)
+        for image in os.listdir(video_path):
             image = os.path.join(video, image)
-            # if debug:
-            #     print(image)
-            valid.append(image)
+            train.append(image)
 
     random.shuffle(train)
     random.shuffle(valid)
@@ -744,7 +744,6 @@ def train_model(
         clear_transform=clear_transform,
         cloud_transform=cloud_transform,
     )
-
     valid_dataset = ImageDataset(
         valid,
         data_dir=data_dir,

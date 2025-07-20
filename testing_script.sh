@@ -5,19 +5,20 @@
 trap "Exiting . . ." SIGINT
 
 # test a model and a video over multiple iterations
-test_model="/home/pressjson/Documents/Boredealis/vgg_128_models/checkpoint_epoch_52.pth"
-test_video="/home/pressjson/Documents/Boredealis_Media/test_videos/06012016_071857.avi"
-output_dir="/home/pressjson/Documents/Boredealis_Media/vgg_128_various_stages/epoch_52_iter/"
 
-mkdir -p $output_dir
+# test_model="/home/pressjson/Documents/Boredealis/vgg_128_models/checkpoint_best.pth"
+# test_video="/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/04122019_044905.avi"
+# output_dir="/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/iterations/"
 
-for iter in {2..15}; do
-    file_base="${test_model##*/}"
-    file_base_noext="${file_base%.*}"
-    save_path="${output_dir}${file_base_noext}_iter_${iter}.mov"
-    echo "./run.sh -i=$test_video -o=$save_path -c=$test_model -I=$iter"
-    ./run.sh -i=$test_video -o=$save_path -c=$test_model -I=$iter
-done
+# mkdir -p $output_dir
+
+# for iter in {2..14..2}; do
+#     file_base="${test_model##*/}"
+#     file_base_noext="${file_base%.*}"
+#     save_path="${output_dir}${file_base_noext}_iter_${iter}.mov"
+#     echo "./run.sh -i=$test_video -o=$save_path -c=$test_model -I=$iter"
+#     ./run.sh -i=$test_video -o=$save_path -c=$test_model -I=$iter
+# done
 
 # test multiple videos across multiple models
 
@@ -67,20 +68,21 @@ done
 
 # test multiple videos across a single model
 
-# test_videos_dir=(/home/pressjson/Documents/Boredealis_Media/test_videos/*)
-# output_dir="/home/pressjson/Documents/Boredealis_Media/vgg_128_various_stages/checkpoint_epoch_52/"
-# model_path="/home/pressjson/Documents/Boredealis/vgg_128_models/checkpoint_epoch_52.pth"
-# mkdir -p $output_dir
+test_videos_dir=(/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/034811-244905_iter_5/*)
+output_dir="/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/that_special_time_iter_10/"
+model_path="/home/pressjson/Documents/Boredealis/vgg_128_models/checkpoint_best.pth"
+mkdir -p $output_dir
 
-# for file in ${test_videos_dir[@]}; do
-#     file_base="${file##*/}"
-#     file_base_noext="${file_base%.*}"
-#     model_base="${model_path##*/}"
-#     model_base_noext="${model_base%.*}"
-#     save_path="${output_dir}${file_base_noext}_${model_base_noext}.mov"
-#     echo "./run.sh -i=$file -o=$save_path -c=$model_path"
-#     ./run.sh -i=$file -o=$save_path -c=$model_path
-# done
+for file in "${test_videos_dir[@]}"; do
+    file_base="${file##*/}"
+    file_base_noext="${file_base%.*}"
+    model_base="${model_path##*/}"
+    model_base_noext="${model_base%.*}"
+    save_path="${output_dir}${file_base_noext}_${model_base_noext}.mov"
+    command="-i=$file -o=$save_path -c=$model_path -I=5"
+    echo "./run.sh $command"
+    ./run.sh $command
+done
 
 
 # test a single image across multiple models

@@ -17,3 +17,4 @@ torchvision
 typing_extensions
 rich
 opencv-python
+matplotlib
