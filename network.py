@@ -498,8 +498,10 @@ class Up(nn.Module):
     def __init__(self, in_channels, out_channels, skip_channels):
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
-        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.conv = DoubleConv(in_channels + skip_channels, out_channels, in_channels // 2)
+        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        self.conv = DoubleConv(
+            in_channels + skip_channels, out_channels, in_channels // 2
+        )
         # self.up = nn.ConvTranspose2d(
         #     in_channels, in_channels // 2, kernel_size=2, stride=2
         # )
@@ -707,7 +709,7 @@ def train_model(
     random.shuffle(videos)
 
     train_videos = videos[: int(settings.VALUE_SPLIT * len(videos))]
-    valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)): ]
+    valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)) :]
 
     train = []
     valid = []
@@ -725,7 +727,7 @@ def train_model(
         #     print(video)
         for image in os.listdir(video_path):
             image = os.path.join(video, image)
-            train.append(image)
+            valid.append(image)
 
     random.shuffle(train)
     random.shuffle(valid)
@@ -904,7 +906,9 @@ def train_model(
                     if settings.USE_VGG_DEVICE:
                         vgg_loss = vgg_loss_crit(
                             outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                            vgg_loss_crit.get_features(targets.to(f"cuda:{settings.VGG_DEVICE_ID}")),
+                            vgg_loss_crit.get_features(
+                                targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
+                            ),
                             target_is_features=True,
                         )
                     else:
@@ -926,7 +930,9 @@ def train_model(
                 if settings.USE_VGG_DEVICE:
                     vgg_loss = vgg_loss_crit(
                         outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                        vgg_loss_crit.get_features(targets.to(f"cuda:{settings.VGG_DEVICE_ID}")),
+                        vgg_loss_crit.get_features(
+                            targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
+                        ),
                         target_is_features=True,
                     )
                 else:
@@ -953,7 +959,6 @@ def train_model(
                 and settings.MAX_EPOCH_TRAIN_SIZE != -1
             ):
                 break
-
 
         epoch_train_loss = running_loss / num_batches_processed
         print(f"Epoch {epoch+1} [Train] Avg Loss: {epoch_train_loss:.4f}")
@@ -986,7 +991,9 @@ def train_model(
                         if settings.USE_VGG_DEVICE:
                             vgg_loss = vgg_loss_crit(
                                 outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                                vgg_loss_crit.get_features(targets.to(f"cuda:{settings.VGG_DEVICE_ID}")),
+                                vgg_loss_crit.get_features(
+                                    targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
+                                ),
                                 target_is_features=True,
                             )
                         else:
@@ -995,7 +1002,10 @@ def train_model(
                                 vgg_loss_crit.get_features(targets),
                                 target_is_features=True,
                             )
-                        loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
+                        loss = (
+                            l1_loss * L1_WEIGHT
+                            + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
+                        )
                 else:
                     outputs = model(inputs)
                     l1_loss = criterion(outputs, targets)
@@ -1004,7 +1014,9 @@ def train_model(
                     if settings.USE_VGG_DEVICE:
                         vgg_loss = vgg_loss_crit(
                             outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                            vgg_loss_crit.get_features(targets.to(f"cuda:{settings.VGG_DEVICE_ID}")),
+                            vgg_loss_crit.get_features(
+                                targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
+                            ),
                             target_is_features=True,
                         )
                     else:
@@ -1013,7 +1025,9 @@ def train_model(
                             vgg_loss_crit.get_features(targets),
                             target_is_features=True,
                         )
-                    loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
+                    loss = (
+                        l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
+                    )
 
                 running_val_loss += loss.item()
 
@@ -1083,7 +1097,7 @@ def show_tensor_image(tensor):
 
 if __name__ == "__main__":
     train_model(
-        data_dir=os.path.join("data", "images"),
-        # previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
+        data_dir=os.path.join("jpg_training_images"),
+        # PREVIOUS_model_path=os.path.join("models", "64_checkpoint_best.pth"),
         debug=False,
     )
