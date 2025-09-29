@@ -881,11 +881,8 @@ def train_model(
         video_path = os.path.join(data_dir, video)
         for image in os.listdir(video_path):
             image = os.path.join(video, image)
-<<<<<<< HEAD
-=======
             # if debug:
             #     print(image)
->>>>>>> 0354374 (Hard coded a four and six level DeepUNet)
             valid.append(image)
 
     random.shuffle(train)
@@ -1270,14 +1267,9 @@ def show_tensor_image(tensor):
 
 if __name__ == "__main__":
     train_model(
-<<<<<<< HEAD
-        data_dir=os.path.join("jpg_training_images"),
-        # PREVIOUS_model_path=os.path.join("models", "64_checkpoint_best.pth"),
-=======
         # data_dir=os.path.join("data", "images"),
         data_dir=os.path.join("png_split_training_images"),
         # previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
->>>>>>> 0354374 (Hard coded a four and six level DeepUNet)
         debug=False,
         levels=4,
     )
