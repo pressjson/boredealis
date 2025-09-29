@@ -73,19 +73,28 @@ The only problem with using a neural network to calculate the loss of a neural n
 
 * The part that I will put in a white paper
 
+** Abstract
+
+We trained a UNet to learn to extract the Aurora Borealis from ground-based videos. To manufacture training data, we generated synthetic clouds using Perlin noise for the shape of the clouds, and interpolated between two random colors picked from the scene with a color increase for the highs and a decrease for the lows. Then, we combined an image with a clear sky with these synthetic clouds to generate a "cloudy" image. The synthetic clouds over an image with a clear sky appears similar to days with clouds, while being computationally simple enough to generate when needed. We trained the UNet to remove the synthetic clouds. When given real cloudy data, the UNet effectively extracts the Aurora Borealis from cloudy days. The filtered image on a real day featured less clouds and featured a more clear Auroral structure when compared to the original image.
+
 ** Sources to cite
 
 Perlin noise generation for clouds, by John C. Hart
 [[https://dl.acm.org/doi/abs/10.1145/383507.383531]]
 
 Perceptual Loss, by Christian Leidig, Lucas Theis, et. al.
-[[https://arxiv.org/pdf/1609.04802v5]]
+[[https://arxiv.org/abs/1609.04802v5]]
+
+U-Net: Convolutional Networks for Biomedical Image Segmentation, by Olaf Ronneberger, Philipp Fischer, and Thomas Brox
+https://arxiv.org/abs/1505.04597
 
 ** Dataset
 
-The AllSky Camera dataset is private and collected in house. However, all source code and our models are available on GitHub at https://github.com/pressjson/boredealis under an MIT license. Included in the GitHub repo are two videos from the AllSky Camera dataset that were not used in the training dataset, to validate results (subject to the approval of Fred).
+The AllSky Camera dataset is private and collected in house. However, all source code and our models are available on GitHub at https://github.com/pressjson/boredealis under an MIT license. Included in the GitHub repo are two videos from the AllSky Camera dataset that were not used in the training dataset, to validate results (both the MIT License and sample videos being publically available are subject to the approval of Fred, Dr. Fasel, and any other powers that may be).
 
 ** Methods
+
+@TODO: REWRITE THIS SECTION
 
 In order to remove clouds, we need a model to remove clouds from videos. The model architecture we chose to use is a U-Net, due to its ability to extract features without "hallucinating" in the manner modern generative-based ML models do. In order to use a U-Net on the dataset, we need to preprocess the dataset. Since a U-Net expects an image as an input, we turn the videos into a series of individual images and work with each image. For choosing the size of the U-Net, experimentation revealed the optimal amount of start filters to be 128 and the amount of down sampling sizes to be five. On the 608x608 images, this gives a bottleneck of \(19 \times 19 \times 2048\).
 
@@ -99,7 +108,7 @@ Matching real days with real clouds is impossible, because the Aurora is never e
 
 A cloud is a collection of water vapor and droplets. When a photon hits a water droplet, it gets scattered or absorbed. This gives the cloud a color and an opacity. The color of the cloud is a combination of absorbed light, which appears white, and light that gets reflected from the scene. The density of the cloud gives it an opacity.
 
-To get the density of the clouds, we use Perlin noise to describe the geometry of the cloud. Cloud generation in visual effects use Perlin noise to generate the geometry of the cloud \cite{Hart}. We make a world of Perlin noise the size of the input image, which is \(608\times608\). .
+To get the density of the clouds, we use Perlin noise to describe the geometry of the cloud. Cloud generation in visual effects use Perlin noise to generate the geometry of the cloud \cite{Hart}. We make a world of Perlin noise the size of the input image, which is \(608\times608\).
 
 To get the color of the clouds from a Perlin noise base, the program chooses two random points in the scene, within the field of view of the camera (i.e. not the metadata of the frame). This simulates the cloud having some component of light from the scene. Then, the lower value gets a random value subracted from the red, green, and blue values; and the upper value gets a boost in the red, green, and blue values. This simulates the cloud absorbing light and appearing white. The amount we subtracted and boosted was a random integer between 0 and 150, which seemed to give us the best results.
 
@@ -195,9 +204,13 @@ The final result of all of these operations on an image with a clear sky is an i
 #+CAPTION: What real clouds look like under similar conditions
 @TODO: FIND THIS MOMENT
 
+*** Model Architecture
+
+For our use case, we decided a UNet best fits our application. UNets learn to extract features in images [Ronneberger, et. al]. The feature we want to extract in our images is the Aurora Borealis.
+
 *** Model Training
 
-We gave the model over one million images from over two hundred videos spanning ten years of hand picked AllSky Camera data with a clear sky. The model picks a random subset of two hundred thousand images to train on. From the training images, the model split the data into 80% training data and 20% validaiton data. Having two nearly identical images, such as adjacent frames, in both the training and validation set is not a concern because the synthetic clouds are randomly generated each time the image gets processed by the model.
+We gave the model over one million images from over two hundred videos spanning ten years of hand picked AllSky Camera data with a clear sky. The model picks a random subset of two hundred thousand images to train on. From the training images, the model split the data into 80% training data and 20% validaiton data.
 
 For both training and validation, we used two transforms on the same image. One transform only normalizes the image, and the other transform adds the clouds to the image before the image gets normalized. We only add synthetic clouds 80% of the time, to train the model to not remove clouds that do not exist on clear days.
 
@@ -225,11 +238,13 @@ cloud_transform = transforms.Compose(
 
 We used Perceptual (VGG) Loss to calculate loss. This gave us the best results through experimentation.
 
+*** Training Data
+
+For choosing what data to train the model on, we looked through all available data, and categorized each video as either "cloudy" or "clear." Clear videos feature no clouds in the center of the screen. Within each day, we chose two videos that were clear, but not right next to each other. If one video ended on a frame and the next video started on the next frame, this could lead to very similar looking images appearing in both the training and validation set of data, skewing the validation numbers. We also chose times that were random, to give the model a variety of conditions to train on, such as nighttime, sunrise, daytime, and sunset.
+
 ** Results
 
-@TODO: REPLACE WITH THE ACTUAL DATA ONCE I HAVE IT IN MY GRUBBY LITTLE PALMS
-
-We trained the model for 35 epochs. We achieved a best value loss of 0.0432.
+We trained a variety of model sizes: 96, 128, and 160 start filters for small, medium, and large respectively.
 
 #+CAPTION: Value Loss versus Epochs of training
 @TODO: GENERATE THE GRAPH

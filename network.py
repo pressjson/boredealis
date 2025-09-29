@@ -22,6 +22,9 @@ if not os.path.exists("local_settings.py"):
 else:
     import local_settings as settings
 
+# @TODO: separate all of this crap into many individual files
+#        but i don't want to
+
 
 class ImageDataset(Dataset):
     def __init__(
@@ -605,6 +608,158 @@ class DeepUNet(nn.Module):
         return logits
 
 
+class Four_Level_DeepUNet(nn.Module):
+    def __init__(self, n_channels_in, n_classes_out, start_filters=64):
+        super(Four_Level_DeepUNet, self).__init__()
+        self.n_channels_in = n_channels_in
+        self.n_classes_out = n_classes_out
+        self.start_filters = start_filters
+
+        # Encoder
+        self.inc = DoubleConv(n_channels_in, start_filters)
+        self.down1 = Down(start_filters, start_filters * 2)  # 608->304
+        self.down2 = Down(start_filters * 2, start_filters * 4)  # 304->152
+        self.down3 = Down(start_filters * 4, start_filters * 8)  # 152->76
+        self.down4 = Down(start_filters * 8, start_filters * 16)  # 76->38
+        # self.down5 = Down(
+        #     start_filters * 16, start_filters * 32
+        # )  # 38->19 (Bottleneck input)
+
+        # Decoder
+        # The 'in_channels' for Up is the number of channels from the layer below (e.g., bottleneck)
+        # The 'skip_channels' is the number of channels from the corresponding encoder layer
+        # The 'out_channels' is the target number of channels for this decoder stage
+        # self.up1 = Up(
+        #     start_filters * 32, start_filters * 16, skip_channels=start_filters * 16
+        # )  # 19->38
+        self.up2 = Up(
+            start_filters * 16, start_filters * 8, skip_channels=start_filters * 8
+        )  # 38->76
+        self.up3 = Up(
+            start_filters * 8, start_filters * 4, skip_channels=start_filters * 4
+        )  # 76->152
+        self.up4 = Up(
+            start_filters * 4, start_filters * 2, skip_channels=start_filters * 2
+        )  # 152->304
+        self.up5 = Up(
+            start_filters * 2, start_filters, skip_channels=start_filters
+        )  # 304->608
+
+        self.outc = OutConv(start_filters, n_classes_out)
+        self.final_activation = nn.Tanh()
+
+        # # Determine final activation
+        # if n_classes_out == 1:
+        #     self.final_activation = nn.Sigmoid()
+        # elif n_classes_out > 1:
+        #     self.final_activation = nn.Softmax(
+        #         dim=1
+        #     )  # Apply softmax over channel dimension
+        # else:  # Should not happen with positive n_classes_out
+        #     self.final_activation = None  # Linear activation
+
+    def forward(self, x):
+        # Encoder
+        s1 = self.inc(x)  # 608x608, sf
+        s2 = self.down1(s1)  # 304x304, sf*2
+        s3 = self.down2(s2)  # 152x152, sf*4
+        s4 = self.down3(s3)  # 76x76,   sf*8
+        # s5 = self.down4(s4)  # 38x38,   sf*16
+        bottleneck = self.down4(s4)  # 19x19,   sf*32
+
+        # Decoder
+        d1 = self.up2(bottleneck, s4)  # 38x38, sf*16
+        d2 = self.up3(d1, s3)  # 76x76, sf*8
+        d3 = self.up4(d2, s2)  # 152x152, sf*4
+        d4 = self.up5(d3, s1)  # 304x304, sf*2
+        # d5 = self.up5(d4, s1)  # 608x608, sf
+
+        logits = self.outc(d4)
+
+        if self.final_activation:
+            return self.final_activation(logits)
+        return logits
+
+
+class Six_Level_DeepUNet(nn.Module):
+    def __init__(self, n_channels_in, n_classes_out, start_filters=64):
+        super(Six_Level_DeepUNet, self).__init__()
+        self.n_channels_in = n_channels_in
+        self.n_classes_out = n_classes_out
+        self.start_filters = start_filters
+
+        # Encoder
+        self.inc = DoubleConv(n_channels_in, start_filters)
+        self.down1 = Down(start_filters, start_filters * 2)  # 608->304
+        self.down2 = Down(start_filters * 2, start_filters * 4)  # 304->152
+        self.down3 = Down(start_filters * 4, start_filters * 8)  # 152->76
+        self.down4 = Down(start_filters * 8, start_filters * 16)  # 76->38
+        self.down5 = Down(start_filters * 16, start_filters * 32)  # 38->19
+        self.down6 = Down(
+            start_filters * 32, start_filters * 64
+        )  # 19->9 (Bottleneck input)
+
+        # Decoder
+        # The 'in_channels' for Up is the number of channels from the layer below (e.g., bottleneck)
+        # The 'skip_channels' is the number of channels from the corresponding encoder layer
+        # The 'out_channels' is the target number of channels for this decoder stage
+        self.up0 = Up(
+            start_filters * 64, start_filters * 32, skip_channels=start_filters * 32
+        )  # 9->19
+        self.up1 = Up(
+            start_filters * 32, start_filters * 16, skip_channels=start_filters * 16
+        )  # 19->38
+        self.up2 = Up(
+            start_filters * 16, start_filters * 8, skip_channels=start_filters * 8
+        )  # 38->76
+        self.up3 = Up(
+            start_filters * 8, start_filters * 4, skip_channels=start_filters * 4
+        )  # 76->152
+        self.up4 = Up(
+            start_filters * 4, start_filters * 2, skip_channels=start_filters * 2
+        )  # 152->304
+        self.up5 = Up(
+            start_filters * 2, start_filters, skip_channels=start_filters
+        )  # 304->608
+
+        self.outc = OutConv(start_filters, n_classes_out)
+        self.final_activation = nn.Tanh()
+
+        # # Determine final activation
+        # if n_classes_out == 1:
+        #     self.final_activation = nn.Sigmoid()
+        # elif n_classes_out > 1:
+        #     self.final_activation = nn.Softmax(
+        #         dim=1
+        #     )  # Apply softmax over channel dimension
+        # else:  # Should not happen with positive n_classes_out
+        #     self.final_activation = None  # Linear activation
+
+    def forward(self, x):
+        # Encoder
+        s1 = self.inc(x)  # 608x608, sf
+        s2 = self.down1(s1)  # 304x304, sf*2
+        s3 = self.down2(s2)  # 152x152, sf*4
+        s4 = self.down3(s3)  # 76x76,   sf*8
+        s5 = self.down4(s4)  # 38x38,   sf*16
+        s6 = self.down5(s5)  # 19x19,   sf*32
+        bottleneck = self.down6(s6)  # 9x9,   sf*64
+
+        # Decoder
+        d0 = self.up0(bottleneck, s6)
+        d1 = self.up1(d0, s5)  # 38x38, sf*16
+        d2 = self.up2(d1, s4)  # 76x76, sf*8
+        d3 = self.up3(d2, s3)  # 152x152, sf*4
+        d4 = self.up4(d3, s2)  # 304x304, sf*2
+        d5 = self.up5(d4, s1)  # 608x608, sf
+
+        logits = self.outc(d5)
+
+        if self.final_activation:
+            return self.final_activation(logits)
+        return logits
+
+
 def train_model(
     IMG_CHANNELS_IN=3,
     NUM_CLASSES_OUT=3,
@@ -612,6 +767,7 @@ def train_model(
     data_dir=os.path.join("data", "images"),
     num_epochs=settings.NUM_EPOCHS,
     previous_model_path=None,
+    levels=5,
     debug=False,
 ):
     """Training loop for training a model.
@@ -703,8 +859,8 @@ def train_model(
     #   ...
 
     videos = []
-    for video in os.listdir(data_dir):
-        videos.append(video)
+    for video_path in os.listdir(data_dir):
+        videos.append(video_path)
 
     random.shuffle(videos)
 
@@ -723,10 +879,13 @@ def train_model(
 
     for video in valid_videos:
         video_path = os.path.join(data_dir, video)
-        # if debug:
-        #     print(video)
         for image in os.listdir(video_path):
             image = os.path.join(video, image)
+<<<<<<< HEAD
+=======
+            # if debug:
+            #     print(image)
+>>>>>>> 0354374 (Hard coded a four and six level DeepUNet)
             valid.append(image)
 
     random.shuffle(train)
@@ -790,11 +949,25 @@ def train_model(
 
     start_epoch = 0
 
-    model = DeepUNet(
-        n_channels_in=IMG_CHANNELS_IN,
-        n_classes_out=NUM_CLASSES_OUT,
-        start_filters=START_FILTERS,
-    )
+    match levels:
+        case 6:
+            model = Six_Level_DeepUNet(
+                n_channels_in=IMG_CHANNELS_IN,
+                n_classes_out=NUM_CLASSES_OUT,
+                start_filters=START_FILTERS,
+            )
+        case 4:
+            model = Four_Level_DeepUNet(
+                n_channels_in=IMG_CHANNELS_IN,
+                n_classes_out=NUM_CLASSES_OUT,
+                start_filters=START_FILTERS,
+            )
+        case _:
+            model = DeepUNet(
+                n_channels_in=IMG_CHANNELS_IN,
+                n_classes_out=NUM_CLASSES_OUT,
+                start_filters=START_FILTERS,
+            )
     if previous_model_path == None:
         print(
             f"Initialized DeepUNet with {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
@@ -1097,7 +1270,14 @@ def show_tensor_image(tensor):
 
 if __name__ == "__main__":
     train_model(
+<<<<<<< HEAD
         data_dir=os.path.join("jpg_training_images"),
         # PREVIOUS_model_path=os.path.join("models", "64_checkpoint_best.pth"),
+=======
+        # data_dir=os.path.join("data", "images"),
+        data_dir=os.path.join("png_split_training_images"),
+        # previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
+>>>>>>> 0354374 (Hard coded a four and six level DeepUNet)
         debug=False,
+        levels=4,
     )

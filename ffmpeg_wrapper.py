@@ -19,7 +19,7 @@ def convert_to_images(input, output_path, output_name="output"):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     ffmpeg.input(input).output(
-        os.path.join(output_path, output_name + "_%04d.jpg"),
+        os.path.join(output_path, output_name + "_%04d.png"),
         loglevel="quiet",  # Use png for final, as it's lossless
     ).run()
 
@@ -62,6 +62,7 @@ def convert_directory(input_dir, output_dir):
 
     print(f"Done converting {dir_size} files in {time.time()-start_time:.2f}s.")
 
+
 def convert_directory_with_subfolders(input_dir, output_dir):
     start_time = time.time()
 
@@ -74,11 +75,12 @@ def convert_directory_with_subfolders(input_dir, output_dir):
         if not os.path.exists(video_output_dir):
             os.mkdir(video_output_dir)
 
-
         print(
             f"Converting {input_dir}/{base}{ext} into {video_output_dir}"
         )  # Instead of {file} because I want to see the regex work
-        convert_to_images(os.path.join(input_dir, video), video_output_dir, output_name=base)
+        convert_to_images(
+            os.path.join(input_dir, video), video_output_dir, output_name=base
+        )
 
     print(f"Done! It took {time.time()-start_time:.2f}s.")
 
@@ -88,4 +90,8 @@ if __name__ == "__main__":
     # convert_to_images(
     #     "test/02032021_221508.avi", "test/images", output_name="02032021_221508"
     # )
-    convert_directory_with_subfolders("/run/media/pressjson/Chonker/Boredealis Files/training_videos", "/run/media/pressjson/Chonker/Boredealis Files/jpg_training_images")
+    convert_directory_with_subfolders(
+        # "/run/media/pressjson/Chonker/Boredealis Files/test_videos",
+        "/home/pressjson/Documents/Boredealis_Media/test_videos/",
+        "/home/pressjson/Documents/Boredealis_Media/test_videos/",
+    )

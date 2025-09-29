@@ -23,7 +23,7 @@ def save_to_csv(x, y, xlabel, ylabel, file_name):
             file.write(f"{x[i]},{y[i]}\n")
 
 def filter_output_log(input_file, verbose=False):
-    """Reads an input file and plots the training and validation loss with matplotlib."""
+    """Reads an input file and plots the training and validation loss with matplotlib. Or saves to CSV. Edit the source code for now to choose."""
     expression = r"Epoch\s*(\d+)\s*\[([^\]]+)\]\s*Avg\sLoss:\s([\d.]+)"
     train_x = []
     train_y = []
@@ -58,10 +58,10 @@ def filter_output_log(input_file, verbose=False):
     # plot(train_x, train_y, title="Train Loss vs. Epoch")
     # plot(valid_x, valid_y, title="Validation Loss vs. Epoch")
 
-    save_to_csv(train_x, train_y, "Epoch", "Loss", "train_96_vgg.csv")
-    save_to_csv(valid_x, valid_y, "Epoch", "Loss", "valid_96_vgg.csv")
+    save_to_csv(train_x, train_y, "Epoch", "Loss", "train_64_split_vgg.csv")
+    save_to_csv(valid_x, valid_y, "Epoch", "Loss", "valid_64_split_vgg.csv")
 
 
 
 if __name__ == "__main__":
-    filter_output_log("output_vgg_96.log", verbose=True)
+    filter_output_log("output_split_vgg_64.log", verbose=True)

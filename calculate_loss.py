@@ -5,6 +5,11 @@ import network
 import torch
 from PIL import Image
 import torchvision.transforms.functional as TF
+import torch.nn as nn
+from ignite.engine import *
+from ignite.metrics import *
+import os
+import time
 
 
 def calculate_loss(ground_truth_path, clouded_image_path, model_path):
@@ -20,11 +25,13 @@ def calculate_loss(ground_truth_path, clouded_image_path, model_path):
     model = test.load_model(model_path, device)
     vgg_loss = network.VGGLoss().to(device)
 
+    start_time = time.time()
     output = test.test_with_ram(
-        image=clouded_image, preloaded_model=model, device=device, verbose=True
+        image=clouded_image, preloaded_model=model, device=device, verbose=False
     )
+    end_time = time.time()
 
-    print(output)
+    # print(output)
     output = TF.to_tensor(output).unsqueeze(0)
     # output = (output + 1.0) / 2
 
@@ -38,6 +45,31 @@ def calculate_loss(ground_truth_path, clouded_image_path, model_path):
     )
 
     print(f"VGG Loss for model {model_path}: {loss}")
+
+    l1_loss = nn.L1Loss()
+    loss = l1_loss(output.to(device), ground_truth.to(device))
+    print(f"L1 Loss for model {model_path}: {loss}")
+
+    mse_loss = nn.MSELoss()
+    loss = mse_loss(output.to(device), ground_truth.to(device))
+    print(f"MSE Loss for model {model_path}: {loss}")
+
+    default_evaluator = Engine(eval_step)
+    psnr = PSNR(data_range=1.0)
+    psnr.attach(default_evaluator, "psnr")
+    state = default_evaluator.run([[output, ground_truth]])
+    print(f"PSNR for model {model_path}: {state.metrics['psnr']}")
+
+    metric = SSIM(data_range=1.0)
+    metric.attach(default_evaluator, "ssim")
+    state = default_evaluator.run([[output, ground_truth]])
+    print(f"SSIM for model {model_path}: {state.metrics['ssim']}")
+
+    print(f"Time for model {model_path}: {end_time - start_time}")
+
+
+def eval_step(engine, batch):
+    return batch
 
 
 def compare_with_itself(ground_truth):
@@ -57,9 +89,17 @@ def compare_with_itself(ground_truth):
 
 
 if __name__ == "__main__":
-    # calculate_loss(
-    #     ground_truth_path="readme_images/improved_synthetic_base.png",
-    #     clouded_image_path="readme_images/improved_synthetic_clouds.png",
-    #     model_path="testing_models/160_checkpoint_epoch_23.pth",
-    # )
-    compare_with_itself("readme_images/improved_synthetic_base.png")
+    model_directory = "testing_models"
+    for model in os.listdir(model_directory):
+        model_path = os.path.join(model_directory, model)
+        # calculate_loss(
+        #     ground_truth_path="readme_images/improved_synthetic_base.png",
+        #     clouded_image_path="readme_images/improved_synthetic_clouds.png",
+        #     model_path=model_path,
+        # )
+        calculate_loss(
+            ground_truth_path="readme_images/improved_synthetic_base.png",
+            clouded_image_path="readme_images/improved_synthetic_base.png",
+            model_path=model_path,
+        )
+    # compare_with_itself("readme_images/improved_synthetic_base.png")
