@@ -1049,7 +1049,7 @@ def train_model(
             )
     if previous_model_path == None:
         print(
-            f"Initialized DeepUNet with {layers} layers, {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
+            f"Initialized DeepUNet with {levels} layers, {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
         )
     else:
         if not os.path.exists(previous_model_path):
