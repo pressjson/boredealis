@@ -53,6 +53,80 @@ class ImageDataset(Dataset):
 # google gemini pro 2.5 advanced code
 # edited by me
 
+# some refactoring
+
+
+def make_video_datasets(data_dir):
+
+    videos = []
+    for video_path in os.listdir(data_dir):
+        videos.append(video_path)
+
+    random.shuffle(videos)
+
+    train_videos = videos[: int(settings.VALUE_SPLIT * len(videos))]
+    valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)) :]
+
+    train = []
+    valid = []
+    for video in train_videos:
+        video_path = os.path.join(data_dir, video)
+        # if debug:
+        #     print(video)
+        for image in os.listdir(video_path):
+            image = os.path.join(video, image)
+            train.append(image)
+
+    for video in valid_videos:
+        video_path = os.path.join(data_dir, video)
+        for image in os.listdir(video_path):
+            image = os.path.join(video, image)
+            # if debug:
+            #     print(image)
+            valid.append(image)
+
+    random.shuffle(train)
+    random.shuffle(valid)
+
+    if settings.NUM_IMAGES != -1:
+        train = train[: int(settings.NUM_IMAGES * settings.VALUE_SPLIT)]
+        valid = valid[: int(settings.NUM_IMAGES * (1 - settings.VALUE_SPLIT))]
+
+    return train, valid
+
+
+def make_dataloaders(train, valid, data_dir, clear_transform, cloud_transform):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    train_dataset = ImageDataset(
+        train,
+        data_dir=data_dir,
+        clear_transform=clear_transform,
+        cloud_transform=cloud_transform,
+    )
+    valid_dataset = ImageDataset(
+        valid,
+        data_dir=data_dir,
+        clear_transform=clear_transform,
+        cloud_transform=cloud_transform,
+    )
+
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=settings.BATCH_SIZE,
+        num_workers=settings.NUM_WORKERS,
+        shuffle=True,
+        pin_memory=(device.type == "cuda"),
+    )
+    valid_dataloader = DataLoader(
+        valid_dataset,
+        batch_size=settings.BATCH_SIZE,
+        num_workers=settings.NUM_WORKERS,
+        shuffle=True,
+        pin_memory=(device.type == "cuda"),
+    )
+
+    return train_dataloader, valid_dataloader
+
 
 def hex_to_rgb(hex):
     """Takes a hex string and returns the corresponding RGB tuple.
@@ -858,70 +932,78 @@ def train_model(
     #     ...
     #   ...
 
-    videos = []
-    for video_path in os.listdir(data_dir):
-        videos.append(video_path)
+    # videos = []
+    # for video_path in os.listdir(data_dir):
+    #     videos.append(video_path)
 
-    random.shuffle(videos)
+    # look, ma, i'm refactoring!
 
-    train_videos = videos[: int(settings.VALUE_SPLIT * len(videos))]
-    valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)) :]
+    # random.shuffle(videos)
 
-    train = []
-    valid = []
-    for video in train_videos:
-        video_path = os.path.join(data_dir, video)
-        # if debug:
-        #     print(video)
-        for image in os.listdir(video_path):
-            image = os.path.join(video, image)
-            train.append(image)
+    # train_videos = videos[: int(settings.VALUE_SPLIT * len(videos))]
+    # valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)) :]
 
-    for video in valid_videos:
-        video_path = os.path.join(data_dir, video)
-        for image in os.listdir(video_path):
-            image = os.path.join(video, image)
-            # if debug:
-            #     print(image)
-            valid.append(image)
+    # train = []
+    # valid = []
+    # for video in train_videos:
+    #     video_path = os.path.join(data_dir, video)
+    #     # if debug:
+    #     #     print(video)
+    #     for image in os.listdir(video_path):
+    #         image = os.path.join(video, image)
+    #         train.append(image)
 
-    random.shuffle(train)
-    random.shuffle(valid)
+    # for video in valid_videos:
+    #     video_path = os.path.join(data_dir, video)
+    #     for image in os.listdir(video_path):
+    #         image = os.path.join(video, image)
+    #         # if debug:
+    #         #     print(image)
+    #         valid.append(image)
 
-    if settings.NUM_IMAGES != -1:
-        train = train[: int(settings.NUM_IMAGES * settings.VALUE_SPLIT)]
-        valid = valid[: int(settings.NUM_IMAGES * (1 - settings.VALUE_SPLIT))]
+    # random.shuffle(train)
+    # random.shuffle(valid)
+
+    # if settings.NUM_IMAGES != -1:
+    #     train = train[: int(settings.NUM_IMAGES * settings.VALUE_SPLIT)]
+    #     valid = valid[: int(settings.NUM_IMAGES * (1 - settings.VALUE_SPLIT))]
+
+    train, valid = make_video_datasets(data_dir)
 
     print(
         f"Using {len(train)} images for training and {len(valid)} images for validation"
     )
 
-    train_dataset = ImageDataset(
-        train,
-        data_dir=data_dir,
-        clear_transform=clear_transform,
-        cloud_transform=cloud_transform,
-    )
-    valid_dataset = ImageDataset(
-        valid,
-        data_dir=data_dir,
-        clear_transform=clear_transform,
-        cloud_transform=cloud_transform,
-    )
+    # train_dataset = ImageDataset(
+    #     train,
+    #     data_dir=data_dir,
+    #     clear_transform=clear_transform,
+    #     cloud_transform=cloud_transform,
+    # )
+    # valid_dataset = ImageDataset(
+    #     valid,
+    #     data_dir=data_dir,
+    #     clear_transform=clear_transform,
+    #     cloud_transform=cloud_transform,
+    # )
 
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=settings.BATCH_SIZE,
-        num_workers=settings.NUM_WORKERS,
-        shuffle=True,
-        pin_memory=(device.type == "cuda"),
-    )
-    valid_dataloader = DataLoader(
-        valid_dataset,
-        batch_size=settings.BATCH_SIZE,
-        num_workers=settings.NUM_WORKERS,
-        shuffle=True,
-        pin_memory=(device.type == "cuda"),
+    # train_dataloader = DataLoader(
+    #     train_dataset,
+    #     batch_size=settings.BATCH_SIZE,
+    #     num_workers=settings.NUM_WORKERS,
+    #     shuffle=True,
+    #     pin_memory=(device.type == "cuda"),
+    # )
+    # valid_dataloader = DataLoader(
+    #     valid_dataset,
+    #     batch_size=settings.BATCH_SIZE,
+    #     num_workers=settings.NUM_WORKERS,
+    #     shuffle=True,
+    #     pin_memory=(device.type == "cuda"),
+    # )
+
+    train_dataloader, valid_dataloader = make_dataloaders(
+        train, valid, data_dir, clear_transform, cloud_transform
     )
 
     if debug == True:
@@ -1046,6 +1128,13 @@ def train_model(
 
     # training loop
     for epoch in range(start_epoch, num_epochs):
+        # remake dataset for randomness
+        # allows to train with a smaller number of images for faster iteration
+        train, valid = make_video_datasets(data_dir)
+        train_dataloader, valid_dataloader = make_dataloaders(
+            train, valid, data_dir, clear_transform, cloud_transform
+        )
+
         epoch_start_time = time.time()
         model.train()
         running_loss = 0.0
