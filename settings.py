@@ -24,8 +24,8 @@ EPOCH_SAVE_INTERVAL = 5
 STEP_SIZE = 10
 GAMMA = 0.5
 # Transparency upper and lower bounds for the cloud transform
-ALPHA_LOWER_BOUND = 0.1
-ALPHA_UPPER_BOUND = 0.9
+ALPHA_LOWER_BOUND = 0.99
+ALPHA_UPPER_BOUND = 1
 # Tweaking START_FILTERS can crash the GPU, since increasing this dramatically increases VRAM usage
 # This also makes the model more deep, so find a balance
 START_FILTERS = 32

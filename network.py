@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import os
+from collections import OrderedDict
+import time
+import random
+import numpy
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
@@ -10,9 +14,6 @@ import torch.optim as optim
 from torchvision import models, transforms
 from PIL import Image, ImageDraw, ImageFilter
 import noise
-import numpy
-import time
-import random
 
 # import cloud_colors
 
@@ -142,14 +143,14 @@ def hex_to_rgb(hex):
     return tuple(int(hex[i : i + 2], 16) for i in (0, 2, 4))
 
 
-def generate_perlin_noise_image(
+def generate_perlin_noise_map(
     size,
     lower_bound,
     upper_bound,
-    scale=random.uniform(30.0, 500.0),
-    octaves=random.randint(2, 8),
-    persistence=0.5,
-    lacunarity=2.0,
+    scale=random.uniform(100.0, 400.0),
+    octaves=random.randint(2, 5),
+    persistence=random.uniform(0.3, 0.6),
+    lacunarity=random.uniform(1.8, 4),
 ):
     world = numpy.zeros((size, size))
     noise_base = random.randint(1, 10000)
@@ -170,7 +171,11 @@ def generate_perlin_noise_image(
     max_val = numpy.max(world)
 
     normalized_world = (world - min_val) / (max_val - min_val)
+    return normalized_world
 
+
+def colorize_array(normalized_world, lower_bound, upper_bound):
+    size = normalized_world.shape[0]
     r_low, g_low, b_low = lower_bound
     r_up, g_up, b_up = upper_bound
 
@@ -283,7 +288,7 @@ class CombineWithClouds:
             )
             lower_bound = list(sampling_image.getpixel(random_coordinates))
             if not lower_bound[3] == 0:
-                cloud_dimness = random.randint(0, 100)
+                cloud_dimness = random.randint(0, 50)
                 for i in range(len(lower_bound)):
                     lower_bound[i] = (
                         lower_bound[i] - cloud_dimness
@@ -302,7 +307,7 @@ class CombineWithClouds:
             if not upper_bound[3] == 0:
                 upper_bound[3] = 0
                 # print(f"Input list: {upper_bound}")
-                cloud_brightness = random.randint(0, 150)
+                cloud_brightness = random.randint(0, 50)
                 for i in range(len(upper_bound)):
                     # print(upper_bound[i])
                     upper_bound[i] = (
@@ -325,10 +330,19 @@ class CombineWithClouds:
         alpha_lower_bound = settings.ALPHA_LOWER_BOUND
         alpha_upper_bound = settings.ALPHA_UPPER_BOUND
 
-        fake_clouds = generate_perlin_noise_image(
+        fake_clouds = generate_perlin_noise_map(
             settings.IMAGE_SIZE[0], lower_bound=lower_bound, upper_bound=upper_bound
         )
+        for _ in range(0, 5):
+            more_fake_clouds = generate_perlin_noise_map(
+                settings.IMAGE_SIZE[0], lower_bound=lower_bound, upper_bound=upper_bound
+            )
+            fake_clouds = numpy.maximum(fake_clouds, more_fake_clouds)
         # print(f"Fake clouds: {fake_clouds}")
+
+        fake_clouds = colorize_array(
+            fake_clouds, lower_bound=lower_bound, upper_bound=upper_bound
+        )
 
         cropped_clouds = crop_to_center_circle(fake_clouds)
         # print(f"Cropped clouds: {cropped_clouds}")
@@ -340,13 +354,24 @@ class CombineWithClouds:
         # )
         r, g, b, alpha = cropped_clouds.split()
         blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
+        alpha_world = generate_perlin_noise_map(
+            settings.IMAGE_SIZE[0],
+            0,
+            1,
+            scale=random.uniform(200, 400),
+            octaves=random.randint(3, 5),
+            persistence=random.uniform(0.4, 0.5),
+            lacunarity=random.uniform(2.0, 2.2),
+        )
 
-        final_alpha = alpha.point(lambda p: int(p * blend_strength))
-        cloud_layer = Image.merge("RGBA", (r, g, b, final_alpha))
+        alpha_world = (alpha_world * blend_strength * 255).astype(numpy.uint8)
+        alpha_image = Image.fromarray(alpha_world, mode="L")
+
+        cloud_layer = Image.merge("RGBA", (r, g, b, alpha_image))
 
         combined_image = Image.alpha_composite(main_image, cloud_layer)
         blurred_image = combined_image.filter(
-            ImageFilter.GaussianBlur(radius=random.randint(0, 4))
+            ImageFilter.GaussianBlur(radius=random.randint(0, 1))
         )
         blurred_center = crop_to_center_circle(blurred_image)
 
@@ -370,10 +395,11 @@ class RandomApplyTransforms:
         # for debugging why my computer crashes
         # return FU.to_tensor(sample)
 
-        if random.uniform(0, 1) > self.random_threshold:
-            # do nothing
-            return TF.to_tensor(sample)
+        # if random.uniform(0, 1) > self.random_threshold:
+        #     # do nothing
+        #     return TF.to_tensor(sample)
 
+        # apply multiple clouds
         cloud = CombineWithClouds(self.output_size)
 
         sample = cloud(sample)
@@ -575,14 +601,14 @@ class Up(nn.Module):
     def __init__(self, in_channels, out_channels, skip_channels):
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
-        self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
-        self.conv = DoubleConv(
-            in_channels + skip_channels, out_channels, in_channels // 2
-        )
-        # self.up = nn.ConvTranspose2d(
-        #     in_channels, in_channels // 2, kernel_size=2, stride=2
+        # self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        # self.conv = DoubleConv(
+        #     in_channels + skip_channels, out_channels, in_channels // 2
         # )
-        # self.conv = DoubleConv(in_channels // 2 + skip_channels, out_channels)
+        self.up = nn.ConvTranspose2d(
+            in_channels, in_channels // 2, kernel_size=2, stride=2
+        )
+        self.conv = DoubleConv(in_channels // 2 + skip_channels, out_channels)
 
     def forward(self, x1, x2):
         # x1: from previous layer in decoder
@@ -1047,7 +1073,7 @@ def train_model(
                 n_classes_out=NUM_CLASSES_OUT,
                 start_filters=START_FILTERS,
             )
-    if previous_model_path == None:
+    if previous_model_path is None:
         print(
             f"Initialized DeepUNet with {levels} layers, {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
         )
@@ -1068,7 +1094,6 @@ def train_model(
             start_filters=start_filters,
         )
         loaded_state_dict = checkpoint["model_state_dict"]
-        from collections import OrderedDict
 
         new_state_dict = OrderedDict()
         is_data_parallel = False
@@ -1359,6 +1384,8 @@ if __name__ == "__main__":
         # data_dir=os.path.join("data", "images"),
         data_dir=os.path.join("png_split_training_images"),
         # previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
-        debug=False,
+        debug=True,
         levels=4,
     )
+
+#  LocalWords:  ROCm
