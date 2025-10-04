@@ -145,14 +145,27 @@ def hex_to_rgb(hex):
 
 def generate_perlin_noise_map(
     size,
-    lower_bound,
-    upper_bound,
-    scale=random.uniform(100.0, 400.0),
-    octaves=random.randint(2, 5),
-    persistence=random.uniform(0.3, 0.6),
-    lacunarity=random.uniform(1.8, 4),
+    scale=None,
+    octaves=None,
+    persistence=None,
+    lacunarity=None,
+    iterations=1,
+    weight=1.0,
 ):
     world = numpy.zeros((size, size))
+    if iterations < 1:
+        return world
+    # Set random defaults inside the function if they are not provided
+    # Thanks for the advice, Gemini
+    if scale is None:
+        scale = random.uniform(100.0, 400.0)
+    if octaves is None:
+        octaves = random.randint(2, 5)
+    if persistence is None:
+        persistence = random.uniform(0.3, 0.6)
+    if lacunarity is None:
+        lacunarity = random.uniform(1.8, 4)
+
     noise_base = random.randint(1, 10000)
     for x in range(size):
         for y in range(size):
@@ -170,8 +183,15 @@ def generate_perlin_noise_map(
     min_val = numpy.min(world)
     max_val = numpy.max(world)
 
-    normalized_world = (world - min_val) / (max_val - min_val)
-    return normalized_world
+    normalized_world = weight * (world - min_val) / (max_val - min_val)
+    # some simple recursive programming. sorry nasa
+    normalized_world = weight * normalized_world + generate_perlin_noise_map(
+        size,
+        iterations=(iterations - 1),
+        weight=(weight / 2),
+    )
+
+    return numpy.clip(normalized_world, 0, 1)
 
 
 def colorize_array(normalized_world, lower_bound, upper_bound):
@@ -331,13 +351,11 @@ class CombineWithClouds:
         alpha_upper_bound = settings.ALPHA_UPPER_BOUND
 
         fake_clouds = generate_perlin_noise_map(
-            settings.IMAGE_SIZE[0], lower_bound=lower_bound, upper_bound=upper_bound
+            settings.IMAGE_SIZE[0], iterations=random.randint(3, 5)
         )
-        for _ in range(0, 5):
-            more_fake_clouds = generate_perlin_noise_map(
-                settings.IMAGE_SIZE[0], lower_bound=lower_bound, upper_bound=upper_bound
-            )
-            fake_clouds = numpy.maximum(fake_clouds, more_fake_clouds)
+        # for _ in range(0, random.randint(3, 5)):
+        #     more_fake_clouds = generate_perlin_noise_map(settings.IMAGE_SIZE[0])
+        #     fake_clouds = numpy.maximum(fake_clouds, more_fake_clouds)
         # print(f"Fake clouds: {fake_clouds}")
 
         fake_clouds = colorize_array(
@@ -356,12 +374,11 @@ class CombineWithClouds:
         blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
         alpha_world = generate_perlin_noise_map(
             settings.IMAGE_SIZE[0],
-            0,
-            1,
             scale=random.uniform(200, 400),
             octaves=random.randint(3, 5),
             persistence=random.uniform(0.4, 0.5),
             lacunarity=random.uniform(2.0, 2.2),
+            iterations=2,
         )
 
         alpha_world = (alpha_world * blend_strength * 255).astype(numpy.uint8)
@@ -395,9 +412,9 @@ class RandomApplyTransforms:
         # for debugging why my computer crashes
         # return FU.to_tensor(sample)
 
-        # if random.uniform(0, 1) > self.random_threshold:
-        #     # do nothing
-        #     return TF.to_tensor(sample)
+        if random.uniform(0, 1) > self.random_threshold:
+            # do nothing
+            return TF.to_tensor(sample)
 
         # apply multiple clouds
         cloud = CombineWithClouds(self.output_size)
@@ -1153,12 +1170,12 @@ def train_model(
 
     # training loop
     for epoch in range(start_epoch, num_epochs):
-        # remake dataset for randomness
+        # optional: remake dataset for randomness
         # allows to train with a smaller number of images for faster iteration
-        train, valid = make_video_datasets(data_dir)
-        train_dataloader, valid_dataloader = make_dataloaders(
-            train, valid, data_dir, clear_transform, cloud_transform
-        )
+        # train, valid = make_video_datasets(data_dir)
+        # train_dataloader, valid_dataloader = make_dataloaders(
+        #     train, valid, data_dir, clear_transform, cloud_transform
+        # )
 
         epoch_start_time = time.time()
         model.train()

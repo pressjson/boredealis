@@ -43,48 +43,66 @@ trap "Exiting . . ." SIGINT
 
 # test multiple images across multiple models
 
-test_models_dir=(/home/pressjson/Documents/Boredealis/testing_models/*)
-output_dir="/home/pressjson/Documents/Boredealis_Media/vgg_various_stages/"
+# test_models_dir=(/home/pressjson/Documents/Boredealis/testing_models/*)
+# output_dir="/home/pressjson/Documents/Boredealis_Media/vgg_various_stages/"
+# test_images_dir=(/home/pressjson/Documents/Boredealis_Media/test_images/*)
+# # test_image="/home/pressjson/Documents/Boredealis/readme_images/output_0258.png"
+# mkdir -p $output_dir
+
+# for test_image in ${test_images_dir[@]}; do
+#     test_image_base="${test_image##*/}"
+#     test_image_base_noext="${test_image_base%.*}"
+#     output_subdir="${output_dir}${test_image_base_noext}"
+#     echo $output_subdir
+#     mkdir -p "$output_subdir"
+
+#     for file in ${test_models_dir[@]}; do
+#         file_base="${file##*/}"
+#         file_base_noext="${file_base%.*}"
+#         save_path="${output_subdir}/${file_base_noext}.png"
+#         command="import test; test.save_test(image_path='$test_image', model_load_path='$file', save_path='$save_path')"
+#         echo $command
+#         python -c "$command"
+#         echo
+#     done
+# done
+
+# test multiple images across a single model
+
+model_path="/home/pressjson/Documents/Boredealis/testing_models/randiv_128_epoch_5.pth"
+output_dir="/home/pressjson/Documents/Boredealis_Media/randiv_128_models/"
 test_images_dir=(/home/pressjson/Documents/Boredealis_Media/test_images/*)
-# test_image="/home/pressjson/Documents/Boredealis/readme_images/output_0258.png"
 mkdir -p $output_dir
 
 for test_image in ${test_images_dir[@]}; do
     test_image_base="${test_image##*/}"
     test_image_base_noext="${test_image_base%.*}"
-    output_subdir="${output_dir}${test_image_base_noext}"
-    echo $output_subdir
-    mkdir -p "$output_subdir"
-
-    for file in ${test_models_dir[@]}; do
-        file_base="${file##*/}"
-        file_base_noext="${file_base%.*}"
-        save_path="${output_subdir}/${file_base_noext}.png"
-        command="import test; test.save_test(image_path='$test_image', model_load_path='$file', save_path='$save_path')"
-        echo $command
-        python -c "$command"
-        echo
-    done
+    model_base="${model_path##*/}"
+    model_base_noext="${model_base%.*}"
+    save_path="${output_dir}${test_image_base_noext}_${model_base_noext}.png"
+    command="import test; test.save_test(image_path='$test_image', model_load_path='$model_path', save_path='$save_path')"
+    echo $command
+    python -c "$command"
+    echo
 done
 
 # test multiple videos across a single model
 
-# test_videos_dir=(/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/034811-244905_iter_5/*)
-# output_dir="/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/that_special_time_iter_10/"
-# model_path="/home/pressjson/Documents/Boredealis/vgg_128_models/checkpoint_best.pth"
-# mkdir -p $output_dir
+test_videos_dir=(/home/pressjson/Documents/Boredealis_Media/less_test_videos/*)
+output_dir="/home/pressjson/Documents/Boredealis_Media/randiv_128_models/"
+model_path="/home/pressjson/Documents/Boredealis/testing_models/randiv_128_epoch_5.pth"
+mkdir -p $output_dir
 
-# for file in "${test_videos_dir[@]}"; do
-#     file_base="${file##*/}"
-#     file_base_noext="${file_base%.*}"
-#     model_base="${model_path##*/}"
-#     model_base_noext="${model_base%.*}"
-#     save_path="${output_dir}${file_base_noext}_${model_base_noext}.mp4"
-#     command="-i=$file -o=$save_path -c=$model_path -I=5"
-#     echo "./run.sh $command"
-#     ./run.sh $command
-# done
-
+for file in "${test_videos_dir[@]}"; do
+    file_base="${file##*/}"
+    file_base_noext="${file_base%.*}"
+    model_base="${model_path##*/}"
+    model_base_noext="${model_base%.*}"
+    save_path="${output_dir}${file_base_noext}_${model_base_noext}.mp4"
+    command="-i=$file -o=$save_path -c=$model_path"
+    echo "./run.sh $command"
+    ./run.sh $command
+done
 
 # test a single image across multiple models
 
