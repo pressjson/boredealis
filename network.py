@@ -308,7 +308,7 @@ class CombineWithClouds:
             )
             lower_bound = list(sampling_image.getpixel(random_coordinates))
             if not lower_bound[3] == 0:
-                cloud_dimness = random.randint(0, 50)
+                cloud_dimness = random.randint(0, 75)
                 for i in range(len(lower_bound)):
                     lower_bound[i] = (
                         lower_bound[i] - cloud_dimness
@@ -374,11 +374,11 @@ class CombineWithClouds:
         blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
         alpha_world = generate_perlin_noise_map(
             settings.IMAGE_SIZE[0],
-            scale=random.uniform(200, 400),
+            scale=random.uniform(150, 300),
             octaves=random.randint(3, 5),
             persistence=random.uniform(0.4, 0.5),
             lacunarity=random.uniform(2.0, 2.2),
-            iterations=2,
+            iterations=random.randint(2, 4),
         )
 
         alpha_world = (alpha_world * blend_strength * 255).astype(numpy.uint8)
