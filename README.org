@@ -67,7 +67,7 @@ Initially, I wanted to make one where the bounds get randomly selected from a fi
 
 ** Better image loss: VGG
 
-Up to this point, I was using L1 Loss (MAE). It is fast in compute time, and allows me to run a batch size of 7 per GPU on the school server (8x Nvidia A5000 GPUs) with the 128 filter model. N1 penalizes both large and small discrepancies, resulting in a "sharper" image compared to MSE Loss (which does not punish small discrepancies as heavily).
+Up to this point, I was using L1 Loss (MAE). It is fast in compute time, and allows me to run a batch size of 7 per GPU on the school server (8x Nvidia A5000 GPUs) with the 128 filter model. L1 penalizes both large and small discrepancies, resulting in a "sharper" image compared to MSE Loss (which does not punish small discrepancies as heavily).
 
 However, VGG Loss ([[https://arxiv.org/pdf/1609.04802v5][Perceptual Loss]]) more closely simulates image-to-image comparisons. The math is over my head, but it uses a pretrained neural network (VGG16) to compute loss in a more accurate manner than simple pixel-per-pixel comparison. It's really fascinating stuff.
 
@@ -105,15 +105,15 @@ I was sitting bored in Dr. Scalzo's class during the group presentations. One of
 #+CAPTION: RandIV declouded on clouds, but with "diffusion"
 [[file:readme_images/clouds_noisy_randiv_96_checkpoint_best.png]]
 
-*/EXCUSE ME!?!?/*
+/EXCUSE ME!?!?/
 
-So yeah.
+So yeah. It somehow works. Blessed be.
 
 @TODO: Hyperparameter tuning.
 
 * The White Paper
 
-Hey, we got accepted to ISVC with Randthree! You can check out the white paper somewhere, whenever Springer gets around to publishing it. In the meantime, you can read it [[file:ISVC_2025_Declouding_The_Aurora_Borealis.pdf][here]] (if GitHub lets this work).
+Hey, we got accepted to ISVC with Randthree! You can check out the white paper somewhere, whenever Springer gets around to publishing it. In the meantime, you can read it [[file:ISVC_2025_Declouding_The_Aurora_Borealis.pdf][here]] if you are so inclined. If you even exist.
 
 * Installing
 
