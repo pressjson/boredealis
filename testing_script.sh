@@ -6,9 +6,9 @@ trap "Exiting . . ." SIGINT
 
 # test a model and a video over multiple iterations
 
-# test_model="/home/pressjson/Documents/Boredealis/vgg_128_models/checkpoint_best.pth"
-# test_video="/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/04122019_044905.avi"
-# output_dir="/home/pressjson/Documents/Boredealis_Media/test_for_dr_fasel/iterations/"
+# test_model="$HOME/Documents/Boredealis/vgg_128_models/checkpoint_best.pth"
+# test_video="$HOME/Documents/Boredealis_Media/test_for_dr_fasel/04122019_044905.avi"
+# output_dir="$HOME/Documents/Boredealis_Media/test_for_dr_fasel/iterations/"
 
 # mkdir -p $output_dir
 
@@ -22,9 +22,9 @@ trap "Exiting . . ." SIGINT
 
 # test multiple videos across multiple models
 
-# test_videos_dir=(/home/pressjson/Documents/Boredealis_Media/test_videos/*)
-# test_models_dir=(/home/pressjson/Documents/Boredealis/testing_models/*)
-# output_dir="/home/pressjson/Documents/Boredealis_Media/split_vgg_various_stages/"
+# test_videos_dir=($HOME/Documents/Boredealis_Media/test_videos/*)
+# test_models_dir=($HOME/Documents/Boredealis/testing_models/*)
+# output_dir="$HOME/Documents/Boredealis_Media/split_vgg_various_stages/"
 
 # mkdir -p $output_dir
 
@@ -43,10 +43,10 @@ trap "Exiting . . ." SIGINT
 
 # test multiple images across multiple models
 
-# test_models_dir=(/home/pressjson/Documents/Boredealis/testing_models/*)
-# output_dir="/home/pressjson/Documents/Boredealis_Media/vgg_various_stages/"
-# test_images_dir=(/home/pressjson/Documents/Boredealis_Media/test_images/*)
-# # test_image="/home/pressjson/Documents/Boredealis/readme_images/output_0258.png"
+# test_models_dir=($HOME/Documents/Boredealis/testing_models/*)
+# output_dir="$HOME/Documents/Boredealis_Media/randiv_various_stages/"
+# test_images_dir=($HOME/Documents/Boredealis_Media/test_images/*)
+# # test_image="$HOME/Documents/Boredealis/readme_images/output_0258.png"
 # mkdir -p $output_dir
 
 # for test_image in ${test_images_dir[@]}; do
@@ -59,7 +59,8 @@ trap "Exiting . . ." SIGINT
 #     for file in ${test_models_dir[@]}; do
 #         file_base="${file##*/}"
 #         file_base_noext="${file_base%.*}"
-#         save_path="${output_subdir}/${file_base_noext}.png"
+#         save_path="${output_dir}${file_base_noext}/${test_image_base}"
+#         mkdir -p "${output_dir}${file_base_noext}"
 #         command="import test; test.save_test(image_path='$test_image', model_load_path='$file', save_path='$save_path')"
 #         echo $command
 #         python -c "$command"
@@ -69,28 +70,28 @@ trap "Exiting . . ." SIGINT
 
 # test multiple images across a single model
 
-model_path="/home/pressjson/Documents/Boredealis/testing_models/randiv_128_epoch_5.pth"
-output_dir="/home/pressjson/Documents/Boredealis_Media/randiv_128_models/"
-test_images_dir=(/home/pressjson/Documents/Boredealis_Media/test_images/*)
-mkdir -p $output_dir
+model_path="$HOME/Documents/Boredealis/testing_models/randiv_96_checkpoint_best.pth"
+output_dir="$HOME/Documents/Boredealis_Media/noisy_randiv_96_models/"
+# test_images_dir=($HOME/Documents/Boredealis_Media/test_images/*)
+# mkdir -p $output_dir
 
-for test_image in ${test_images_dir[@]}; do
-    test_image_base="${test_image##*/}"
-    test_image_base_noext="${test_image_base%.*}"
-    model_base="${model_path##*/}"
-    model_base_noext="${model_base%.*}"
-    save_path="${output_dir}${test_image_base_noext}_${model_base_noext}.png"
-    command="import test; test.save_test(image_path='$test_image', model_load_path='$model_path', save_path='$save_path')"
-    echo $command
-    python -c "$command"
-    echo
-done
+# for test_image in "${test_images_dir[@]}"; do
+#     test_image_base="${test_image##*/}"
+#     test_image_base_noext="${test_image_base%.*}"
+#     model_base="${model_path##*/}"
+#     model_base_noext="${model_base%.*}"
+#     save_path="${output_dir}${test_image_base_noext}_${model_base_noext}.png"
+#     command="import test; test.save_test(image_path='$test_image', model_load_path='$model_path', save_path='$save_path')"
+#     echo $command
+#     python -c "$command"
+#     echo
+# done
 
 # test multiple videos across a single model
 
-test_videos_dir=(/home/pressjson/Documents/Boredealis_Media/less_test_videos/*)
-output_dir="/home/pressjson/Documents/Boredealis_Media/randiv_128_models/"
-model_path="/home/pressjson/Documents/Boredealis/testing_models/randiv_128_epoch_5.pth"
+# model_path="$HOME/Documents/Boredealis/testing_models/randiv_128_epoch_23.pth"
+# output_dir="$HOME/Documents/Boredealis_Media/randiv_128_models/"
+test_videos_dir=($HOME/Documents/Boredealis_Media/less_test_videos/*)
 mkdir -p $output_dir
 
 for file in "${test_videos_dir[@]}"; do
@@ -106,10 +107,10 @@ done
 
 # test a single image across multiple models
 
-# test_models_dir=(/home/pressjson/Documents/Boredealis/vgg_128_models/*)
-# output_dir="/home/pressjson/Documents/Boredealis_Media/randthree_128_various_stages/"
-# test_image="/home/pressjson/Documents/Boredealis_Media/test/clouds_output/output_3591.png"
-# # test_image="/home/pressjson/Documents/Boredealis/readme_images/output_0258.png"
+# test_models_dir=($HOME/Documents/Boredealis/vgg_128_models/*)
+# output_dir="$HOME/Documents/Boredealis_Media/randthree_128_various_stages/"
+# test_image="$HOME/Documents/Boredealis_Media/test/clouds_output/output_3591.png"
+# # test_image="$HOME/Documents/Boredealis/readme_images/output_0258.png"
 
 # source venv/bin/activate
 # for file in ${test_models_dir[@]}; do
@@ -125,9 +126,9 @@ done
 
 # test a single video across multiple models
 
-# test_models_dir=(/home/pressjson/Documents/Boredealis/split_videos_128_filter_models_take_two/*)
-# output_dir="/home/pressjson/Documents/Boredealis_Media/split_videos_128_filter_models_take_two/"
-# test_video="/home/pressjson/Documents/Boredealis_Media/test_videos/06012016_071857.avi"
+# test_models_dir=($HOME/Documents/Boredealis/split_videos_128_filter_models_take_two/*)
+# output_dir="$HOME/Documents/Boredealis_Media/split_videos_128_filter_models_take_two/"
+# test_video="$HOME/Documents/Boredealis_Media/test_videos/06012016_071857.avi"
 
 # mkdir -p $output_dir
 

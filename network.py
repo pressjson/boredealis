@@ -129,6 +129,8 @@ def make_dataloaders(train, valid, data_dir, clear_transform, cloud_transform):
     return train_dataloader, valid_dataloader
 
 
+# perlin noise shenanigains
+
 def hex_to_rgb(hex):
     """Takes a hex string and returns the corresponding RGB tuple.
 
@@ -152,6 +154,16 @@ def generate_perlin_noise_map(
     iterations=1,
     weight=1.0,
 ):
+    """Generate a Perlin noise map of size (size, size).
+    Args:
+        size (int): The size of the final array.
+        iterations (int): The number of iterations to do. 1 = Perlin noise, more = fBm
+        weight (float): The initial weight of layer 1. Each subsequent layer = weight / 2
+        everything else: Perlin noise hyperparameters.
+
+    Returns:
+        A 2d array of the world between 0 and 1.
+    """
     world = numpy.zeros((size, size))
     if iterations < 1:
         return world
@@ -195,6 +207,16 @@ def generate_perlin_noise_map(
 
 
 def colorize_array(normalized_world, lower_bound, upper_bound):
+    """Makes a color image with a world, lower_bound, and upper_bound
+
+    Args:
+        normalized_world (arr): A world between 0 and 1.
+        lower_bound (tuple): The lower bound.
+        upper_bound (tuple): The upper bound.
+
+    Returns:
+        PIL.Image.Image from the interpolated world
+    """
     size = normalized_world.shape[0]
     r_low, g_low, b_low = lower_bound
     r_up, g_up, b_up = upper_bound
@@ -220,31 +242,18 @@ def colorize_array(normalized_world, lower_bound, upper_bound):
 
     return Image.fromarray(pixels)
 
-
-def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
-    """
-    Takes a PIL image of 608x608 and keeps only a center circle
-    with a radius of 250 pixels. The area outside the circle
-    will be made transparent.
-
-    Args:
-        pil_image (PIL.Image.Image): The input image, must be 608x608.
-
-    Returns:
-        PIL.Image.Image: A new image with the circular crop applied.
-                         The image will be in RGBA format.
-    """
-
+def draw_center_circle(
+    radius = 250,
+    vertical_offset = 15,
+    size = settings.IMAGE_SIZE
+):
+    width, height = settings.IMAGE_SIZE
+    """Draws the center circle."""
     radius = 250
     vertical_offset = 15
-    width, height = pil_image.size  # Should be 608, 608
-
-    # Ensure the image has an alpha channel for transparency
-    img_rgba = pil_image.convert("RGBA")
-
     # Create a mask:
     # Start with a completely black (transparent) mask
-    mask = Image.new("L", (width, height), 0)  # 'L' mode for grayscale mask
+    mask = Image.new("L", size, 0)  # 'L' mode for grayscale mask
     draw = ImageDraw.Draw(mask)
 
     # Calculate the bounding box for the circle
@@ -261,9 +270,30 @@ def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
     # Draw a white (opaque) circle on the black mask
     draw.ellipse((left, top, right, bottom), fill=255)  # 255 is white in 'L' mode
 
-    # Apply the mask to the image
-    # The 'mask' argument in putalpha uses the 'L' mode mask
-    # to set the alpha channel of the RGBA image.
+    return mask
+
+def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
+    """
+    Takes a PIL image of 608x608 and keeps only a center circle
+    with a radius of 250 pixels. The area outside the circle
+    will be made transparent.
+
+    Args:
+        pil_image (PIL.Image.Image): The input image, must be 608x608.
+
+    Returns:
+        PIL.Image.Image: A new image with the circular crop applied.
+                         The image will be in RGBA format.
+    """
+
+    # radius = 250
+    # vertical_offset = 15
+    # width, height = pil_image.size  # Should be 608, 608
+
+    # Ensure the image has an alpha channel for transparency
+    img_rgba = pil_image.convert("RGBA")
+
+    mask = draw_center_circle(size=pil_image.size)
     img_rgba.putalpha(mask)
 
     return img_rgba
@@ -276,11 +306,54 @@ def sum_of_vals(arr):
         sum += i
     return sum
 
+def get_random_valid_coords(sampling_image, boost=0):
+    """Gets random valid coordinates in an image. Valid is in the center circle.
+
+    Args:
+        main_image (PIL.Image.Image): The image to get a bound from. Should be cropped before.
+        boost (int): The amount of boost to add. Can be positive or negative.
+
+    Returns:
+        tuple of len 3 representing (R, G, B) for the bound.
+    """
+    while True:
+        random_coordinates = (
+            random.randint(0, sampling_image.size[0] - 1),
+            random.randint(0, sampling_image.size[0] - 1),
+        )
+        bound = list(sampling_image.getpixel(random_coordinates))
+        if not bound[3] == 0:
+            bound[3] = 0
+            cloud_brightness = random.randint(min(0, boost), max(0, boost))
+            for i in range(len(bound)):
+                # print(upper_bound[i])
+                bound[i] = (
+                    numpy.clip(0, 255, bound[i] + cloud_brightness)
+                )
+            bound = tuple(bound[:3])
+            return bound
+
+
+def make_alpha_image(blend_strength=0.0):
+    alpha_world = generate_perlin_noise_map(
+        settings.IMAGE_SIZE[0],
+        scale=random.uniform(150, 300),
+        octaves=random.randint(3, 5),
+        persistence=random.uniform(0.4, 0.5),
+        lacunarity=random.uniform(2.0, 2.2),
+        iterations=random.randint(2, 4),
+    )
+    circle_mask = numpy.array(draw_center_circle())
+    final_alpha = ((alpha_world * blend_strength ** 0.5) * (circle_mask / 255.0) * 255).astype(numpy.uint8)
+    return Image.fromarray(final_alpha)
+
+
 
 class CombineWithClouds:
-    def __init__(self, output_size):
+    def __init__(self, output_size, noise_strength=None):
         # self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.output_size = output_size
+        self.noise_strength = noise_strength
 
     def __call__(self, main_image):
         main_image = main_image.convert("RGBA")
@@ -299,52 +372,13 @@ class CombineWithClouds:
         # relies on randomness to eventually pick a valid pixel
         lower_bound = [0, 0, 0]
         upper_bound = [255, 255, 255]
-        sampling_image = crop_to_center_circle(main_image)
+        # sampling_image = crop_to_center_circle(main_image)
         # Pick lower bound
-        while True:
-            random_coordinates = (
-                random.randint(0, main_image.size[0] - 1),
-                random.randint(0, main_image.size[0] - 1),
-            )
-            lower_bound = list(sampling_image.getpixel(random_coordinates))
-            if not lower_bound[3] == 0:
-                cloud_dimness = random.randint(0, 75)
-                for i in range(len(lower_bound)):
-                    lower_bound[i] = (
-                        lower_bound[i] - cloud_dimness
-                        if lower_bound[i] > cloud_dimness
-                        else 0
-                    )
-                # print(lower_bound)
-                break
-        # Pick upper bound
-        while True:
-            random_coordinates = (
-                random.randint(0, main_image.size[0] - 1),
-                random.randint(0, main_image.size[0] - 1),
-            )
-            upper_bound = list(sampling_image.getpixel(random_coordinates))
-            if not upper_bound[3] == 0:
-                upper_bound[3] = 0
-                # print(f"Input list: {upper_bound}")
-                cloud_brightness = random.randint(0, 50)
-                for i in range(len(upper_bound)):
-                    # print(upper_bound[i])
-                    upper_bound[i] = (
-                        upper_bound[i] + cloud_brightness
-                        if upper_bound[i] < (255 - cloud_brightness)
-                        else 255
-                    )
-                    # print(upper_bound[i])
-                break
+        upper_bound = get_random_valid_coords(main_image, boost=150)
+        lower_bound = get_random_valid_coords(main_image, boost=-10)
 
-        lower_bound = tuple(lower_bound[:3])
-        # print(f"Lower tuple: {lower_bound}")
-        upper_bound = tuple(upper_bound[:3])
-        # print(f"Upper tuple: {upper_bound}")
         if sum_of_vals(lower_bound) > sum_of_vals(upper_bound):
             # crude check
-            # print("Swapping . . .")
             lower_bound, upper_bound = upper_bound, lower_bound
 
         alpha_lower_bound = settings.ALPHA_LOWER_BOUND
@@ -362,7 +396,6 @@ class CombineWithClouds:
             fake_clouds, lower_bound=lower_bound, upper_bound=upper_bound
         )
 
-        cropped_clouds = crop_to_center_circle(fake_clouds)
         # print(f"Cropped clouds: {cropped_clouds}")
 
         # combined_image = Image.blend(
@@ -370,31 +403,29 @@ class CombineWithClouds:
         #     cropped_clouds,
         #     random.uniform(alpha_lower_bound, alpha_upper_bound),
         # )
-        r, g, b, alpha = cropped_clouds.split()
         blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
-        alpha_world = generate_perlin_noise_map(
-            settings.IMAGE_SIZE[0],
-            scale=random.uniform(150, 300),
-            octaves=random.randint(3, 5),
-            persistence=random.uniform(0.4, 0.5),
-            lacunarity=random.uniform(2.0, 2.2),
-            iterations=random.randint(2, 4),
-        )
+        if self.noise_strength:
+            blend_strength = self.noise_strength
+            print(f"blend_strength: {blend_strength}")
 
-        alpha_world = (alpha_world * blend_strength * 255).astype(numpy.uint8)
-        alpha_image = Image.fromarray(alpha_world, mode="L")
+        alpha_image = make_alpha_image(blend_strength=blend_strength)
 
-        cloud_layer = Image.merge("RGBA", (r, g, b, alpha_image))
+        r, g, b = fake_clouds.split()
 
-        combined_image = Image.alpha_composite(main_image, cloud_layer)
+        fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
+
+        combined_image = Image.alpha_composite(main_image, fake_clouds) 
+        final_image = combined_image.copy()
+
         blurred_image = combined_image.filter(
-            ImageFilter.GaussianBlur(radius=random.randint(0, 1))
+            ImageFilter.GaussianBlur(radius=random.randint(0, 1) if self.noise_strength else 0)
         )
-        blurred_center = crop_to_center_circle(blurred_image)
+        # blurred_center = crop_to_center_circle(blurred_image)
 
-        combined_image = Image.alpha_composite(main_image, blurred_center)
+        blur_mask = draw_center_circle()
+        final_image.paste(blurred_image, (0, 0), blur_mask)
 
-        return combined_image.convert("RGB")
+        return final_image.convert("RGB")
 
 
 # google gemini
@@ -402,10 +433,11 @@ class CombineWithClouds:
 
 class RandomApplyTransforms:
     # His name is Randy
-    def __init__(self, output_size, random_threshold, noise_weight):
+    def __init__(self, output_size, random_threshold, noise_weight, noise_strength=None):
         self.output_size = output_size
         self.random_threshold = random_threshold
         self.noise_weight = noise_weight
+        self.noise_strength = noise_strength
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def __call__(self, sample):
@@ -417,7 +449,7 @@ class RandomApplyTransforms:
             return TF.to_tensor(sample)
 
         # apply multiple clouds
-        cloud = CombineWithClouds(self.output_size)
+        cloud = CombineWithClouds(self.output_size, self.noise_strength)
 
         sample = cloud(sample)
         sample = TF.to_tensor(sample)
@@ -617,11 +649,13 @@ class Up(nn.Module):
 
     def __init__(self, in_channels, out_channels, skip_channels):
         super().__init__()
+        # for older models (ISVC and before), uncomment this portion and comment the other portion
         # if bilinear, use the normal convolutions to reduce the number of channels
         # self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         # self.conv = DoubleConv(
         #     in_channels + skip_channels, out_channels, in_channels // 2
         # )
+        # for newer models (randiv and after), uncomment this portion and comment the other portion
         self.up = nn.ConvTranspose2d(
             in_channels, in_channels // 2, kernel_size=2, stride=2
         )

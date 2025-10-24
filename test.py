@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import os
-import network
+import time
 import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 import torchvision.transforms as T
+from network import get_random_valid_coords, crop_to_center_circle, colorize_array
 
 if not os.path.exists("local_settings.py"):
     # print("Warning: local settings not found. Using default settings.")
@@ -55,6 +56,8 @@ else:
 # generated from google gemini 2.5 pro based off my code
 # that llm is actually smart
 
+from network import DeepUNet, RandomApplyTransforms
+
 
 def load_model(
     model_load_path=os.path.join("models", "64_checkpoint_best.pth"),
@@ -97,7 +100,7 @@ def load_model(
     # Instantiate the model with loaded hyperparameters
     # Ensure DeepUNet is defined/imported correctly
     # from network import DeepUNet # Or however you access your model class
-    model = network.DeepUNet(  # Make sure DeepUNet is correctly imported/defined
+    model = DeepUNet(  # Make sure DeepUNet is correctly imported/defined
         n_channels_in=n_channels_in,
         n_classes_out=n_classes_out,
         start_filters=start_filters,
@@ -140,6 +143,7 @@ def test(
     preloaded_model=None,
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     verbose=True,
+    noise_strength=0.3,
 ) -> Image.Image:
     """Tests the model and returns a PIL Image.
 
@@ -153,7 +157,7 @@ def test(
         -1 if something went wrong.
     """
 
-    model = network.DeepUNet(  # Make sure DeepUNet is correctly imported/defined
+    model = DeepUNet(  # Make sure DeepUNet is correctly imported/defined
         n_channels_in=3,
         n_classes_out=3,
         start_filters=32,
@@ -173,8 +177,15 @@ def test(
     #     print(f"Model: {model}")
     preprocess = T.Compose(
         [
+
             T.Resize(image_size_trained),  # Use the size the model was trained on
-            T.ToTensor(),  # Converts PIL image [0,255] to tensor [0,1]
+            # T.ToTensor(),  # Converts PIL image [0,255] to tensor [0,1]
+            RandomApplyTransforms(
+                settings.IMAGE_SIZE,
+                settings.RANDOM_APPLY_THRESHOLD,
+                settings.NOISE_STRENGTH,
+                noise_strength,
+            ),
             T.Normalize(
                 mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]
             ),  # Normalizes [0,1] to [-1,1]
@@ -183,23 +194,23 @@ def test(
 
     if verbose:
         print(f"Loading and preprocessing image: {image_path}")
-    try:
-        image = Image.open(image_path).convert("RGB")
-        if image.size != settings.IMAGE_SIZE:
-            if verbose:
-                print(
-                    f"Warning: input size {image.size} is not {settings.IMAGE_SIZE}. Resizing . . ."
-                )
-                image = image.resize(settings.IMAGE_SIZE, resample=Image.BILINEAR)
-                return image
-        input_tensor = preprocess(image)
-        input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension (B, C, H, W)
-        input_tensor = input_tensor.to(device)
+    # try:
+    image = Image.open(image_path).convert("RGB")
+    if image.size != settings.IMAGE_SIZE:
         if verbose:
-            print(f"Input tensor shape: {input_tensor.shape}")
-    except Exception as e:
-        print(f"Error processing image {image_path}: {e}")
-        return None
+            print(
+                f"Warning: input size {image.size} is not {settings.IMAGE_SIZE}. Resizing . . ."
+            )
+            image = image.resize(settings.IMAGE_SIZE, resample=Image.BILINEAR)
+            return image
+    input_tensor = preprocess(image)
+    input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension (B, C, H, W)
+    input_tensor = input_tensor.to(device)
+    if verbose:
+        print(f"Input tensor shape: {input_tensor.shape}")
+    # except Exception as e:
+    #     print(f"Error processing image {image_path}: {e}")
+    #     return None
 
     # --- Inference ---
     with torch.no_grad():  # Disable gradient calculations for inference
@@ -234,25 +245,29 @@ def test_with_ram(
     preloaded_model=None,
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     verbose=True,
+    fake_clouds=None,
+    # noise_strength=0.3,
+    # alpha_image=None,
 ) -> Image.Image:
     """tests the model and returns a pil image.
 
-    args:
+    Rrgs:
         image_path (str): path to the image to be converted.
         model_load_path (str): path to the model to be loaded.
         image_size_trained (str): should not be touched.
 
-    returns:
-        pil.image.image if successful.
+    Returns:
+        PIL.Image.Image if successful.
         -1 if something went wrong.
     """
 
-    # model = network.DeepUNet(  # make sure deepunet is correctly imported/defined
+    # model = DeepUNet(  # make sure deepunet is correctly imported/defined
     #     n_channels_in=3,
     #     n_classes_out=3,
     #     start_filters=32,
     # )
 
+    start_time = time.time()
     if not preloaded_model:
         model = load_model(
             model_load_path=model_load_path, device=device, verbose=verbose
@@ -265,13 +280,40 @@ def test_with_ram(
     # your training loop normalizes inputs to [-1, 1]
     # if verbose:
     #     print(f"model: {model}")
+    if verbose:
+        print(f"Time to load model: {time.time() - start_time}")
+
+    # cropped_image = crop_to_center_circle(image)
+    # upper_bound = get_random_valid_coords(cropped_image, boost=150)
+    # lower_bound = get_random_valid_coords(cropped_image, boost=-10)
+    # fake_clouds = colorize_array(
+    #     fake_clouds, lower_bound=lower_bound, upper_bound=upper_bound
+    # )
+    # r, g, b = fake_clouds.split()
+
+    # fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
+
+    image = image.convert("RGBA")
+    image = Image.alpha_composite(image, fake_clouds) 
+    image = image.convert("RGB")
+    if verbose:
+        print(f"Time to overlay clouds: {time.time() - start_time}")
+
+
     preprocess = T.Compose(
         [
-            T.Resize(image_size_trained),  # use the size the model was trained on
-            T.ToTensor(),  # converts pil image [0,255] to tensor [0,1]
+
+            T.Resize(image_size_trained),  # Use the size the model was trained on
+            T.ToTensor(),  # Converts PIL image [0,255] to tensor [0,1]
+            # RandomApplyTransforms(
+            #     settings.IMAGE_SIZE,
+            #     settings.RANDOM_APPLY_THRESHOLD,
+            #     settings.NOISE_STRENGTH,
+            #     noise_strength,
+            # ),
             T.Normalize(
                 mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]
-            ),  # normalizes [0,1] to [-1,1]
+            ),  # Normalizes [0,1] to [-1,1]
         ]
     )
 
@@ -293,6 +335,9 @@ def test_with_ram(
         print(f"Error processing image {image}: {e}")
         return None
 
+    if verbose:
+        print(f"Time to preprocess: {time.time() - start_time}")
+
     # --- inference ---
     with torch.no_grad():  # disable gradient calculations for inference
         if verbose:
@@ -302,6 +347,8 @@ def test_with_ram(
             print(
                 f"output tensor shape: {output_tensor.shape}, min: {output_tensor.min():.2f}, max: {output_tensor.max():.2f}"
             )
+    if verbose:
+        print(f"Time to infer: {time.time() - start_time}")
 
     # --- postprocessing ---
     output_tensor = output_tensor.squeeze(0)
@@ -316,6 +363,7 @@ def test_with_ram(
     output_image = TF.to_pil_image(output_tensor_denorm)
     if verbose:
         print("Inference complete. Output image generated.")
+        print(f"Time to finish: {time.time() - start_time}")
 
     return output_image
 
@@ -328,6 +376,6 @@ def save_test(model_load_path=None, image_path=None, save_path=None):
 
 if __name__ == "__main__":
     test(
-        model_load_path=os.path.join("models", "64_checkpoint_best.pth"),
-        image_path=os.path.join("readme_images", "Randii.png"),
+        model_load_path=os.path.join("testing_models", "randiv_96_checkpoint_best.pth"),
+        image_path=os.path.join("readme_images", "clouds.png"),
     ).show()

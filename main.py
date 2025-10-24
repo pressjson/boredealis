@@ -117,10 +117,19 @@ import cv2
 
 # import ffmpeg_wrapper
 import test
+from network import (
+    generate_perlin_noise_map,
+    make_alpha_image,
+    crop_to_center_circle,
+    get_random_valid_coords,
+    colorize_array,
+)
+from random import randint
 # import constructor
 # import cv_composer
 
 PATIENCE = 10
+BOUNDS_RECALCULATION = 100
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
 VALID_MODEL_SIZES = ["96", "128"]
 
@@ -340,19 +349,57 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    for _ in track(range(total_frames), description="[green]Processing video . . .[/green]"):
+
+    # @TODO: tune this parameter
+    BLEND_STRENGTH = 0.5
+    alpha_image = make_alpha_image(blend_strength=BLEND_STRENGTH)
+    fake_clouds_map = generate_perlin_noise_map(
+        size=width, iterations=randint(3, 5)
+    )
+    # just for safety, in case something goes *terribly* awry
+    fake_clouds = colorize_array(
+        fake_clouds_map, lower_bound=(0, 0, 0), upper_bound=(255, 255, 255)
+    )
+    r, g, b = fake_clouds.split()
+
+    fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
+
+
+    for i in track(range(total_frames), description="[green]Processing video . . .[/green]"):
+        loop_start_time = time.time()
         ret, frame = cap.read()
         if not ret:
             break
 
         image_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        if i % BOUNDS_RECALCULATION == 0:
+            # recalculate bounds every BOUNDS_RECALCULATION frames
+            # higher = longer compute time
+            # can not be zero
+            cropped_image = crop_to_center_circle(image_pil)
+            upper_bound = get_random_valid_coords(cropped_image, boost=150)
+            lower_bound = get_random_valid_coords(cropped_image, boost=-10)
+            fake_clouds = colorize_array(
+                fake_clouds_map, lower_bound=lower_bound, upper_bound=upper_bound
+            )
+            r, g, b = fake_clouds.split()
 
-        for iteration in range(0, iterations):
-            image_pil = test.test_with_ram(image=image_pil, preloaded_model=model, device=device, verbose=debug)
+            fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
+
+        for _ in range(0, iterations):
+            image_pil = test.test_with_ram(
+                image=image_pil,
+                preloaded_model=model,
+                device=device,
+                verbose=debug,
+                fake_clouds=fake_clouds,
+            )
 
         filtered_frame_bgr = cv2.cvtColor(numpy.array(image_pil), cv2.COLOR_RGB2BGR)
 
         out.write(filtered_frame_bgr)
+        if debug:
+            print(f"Time to complete a loop: {time.time() - loop_start_time}")
 
     cap.release()
     out.release()

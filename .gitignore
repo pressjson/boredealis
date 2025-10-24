@@ -2,3 +2,4 @@
 ASC_LYR/
 test/
 *.pth
+!*.py

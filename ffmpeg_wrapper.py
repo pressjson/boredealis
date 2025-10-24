@@ -87,11 +87,11 @@ def convert_directory_with_subfolders(input_dir, output_dir):
 
 if __name__ == "__main__":
     # test file
-    # convert_to_images(
-    #     "test/02032021_221508.avi", "test/images", output_name="02032021_221508"
-    # )
-    convert_directory_with_subfolders(
-        # "/run/media/pressjson/Chonker/Boredealis Files/test_videos",
-        "/home/pressjson/Documents/Boredealis_Media/test_videos/",
-        "/home/pressjson/Documents/Boredealis_Media/test_videos/",
+    convert_to_images(
+        "08122023_093301.avi", "test/images", output_name="08122023_093301"
     )
+    # convert_directory_with_subfolders(
+    #     # "/run/media/pressjson/Chonker/Boredealis Files/test_videos",
+    #     "/home/pressjson/Documents/Boredealis_Media/test_videos/",
+    #     "/home/pressjson/Documents/Boredealis_Media/test_videos/",
+    # )
