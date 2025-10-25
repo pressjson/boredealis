@@ -8,6 +8,15 @@ console = Console()
 # File arguments
 # Up here to make -h and -v snappy
 
+# MAGIC NUMBERS
+iterations = 1
+# @TODO: tune this parameter
+BLEND_STRENGTH = 0.15
+PATIENCE = 10
+BOUNDS_RECALCULATION = 100
+VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
+VALID_MODEL_SIZES = ["96", "128"]
+
 arg_input = None
 arg_output = None
 arg_filters = None
@@ -15,7 +24,6 @@ debug = False
 arg_custom_model_path = None
 remove_tmp = True
 use_disk = False
-iterations = 1
 
 for arg in sys.argv[1:]:
     # help
@@ -67,6 +75,8 @@ for arg in sys.argv[1:]:
         iterations = int(arg[3:])
     elif arg.startswith("--iterations="):
         iterations = int(arg[13:])
+    elif arg.startswith("--blend="):
+        BLEND_STRENGTH = float(arg[8:])
 
     # I am so sorry to the else-if gods, but I don't want to refactor this
     # @TODO: refactor this
@@ -87,6 +97,13 @@ if not iterations > 0:
     console.print(f"Error: iterations must be larger than 1, currently at {iterations}.")
     sys.exit(1)
 
+if not (0.0 <= BLEND_STRENGTH and BLEND_STRENGTH <= 1.0):
+    console.print(f"Error: blend strength must be between 0.0 and 1.0, currently at {BLEND_STRENGTH}",
+                    style="bold red")
+    console.print("Clamping blend strength to fit in range . . .", style="yellow")
+    BLEND_STRENGTH = min(1.0, BLEND_STRENGTH)
+    BLEND_STRENGTH = max(0.0, BLEND_STRENGTH)
+    console.print(f"Blend strength is now {BLEND_STRENGTH}")
 
 # if len(sys.argv) >= 2:
 #     argv_1 = sys.argv[1]
@@ -128,10 +145,6 @@ from random import randint
 # import constructor
 # import cv_composer
 
-PATIENCE = 10
-BOUNDS_RECALCULATION = 100
-VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
-VALID_MODEL_SIZES = ["96", "128"]
 
 
 def resource_path(relative_path):
@@ -233,7 +246,7 @@ def main(
                 )
                 continue
 
-            filename, extension = os.path.splitext(video_path)
+            _, extension = os.path.splitext(video_path)
             if extension not in VALID_EXTENSIONS:
                 console.print(
                     f"Warning: Boredealis does not support {extension} files",
@@ -252,7 +265,7 @@ def main(
         save_path = console.input(
             "[green]Where do you want your video saved as (include path and extension)?[/green]\n"
         )
-        filename, extension = os.path.splitext(save_path)
+        _, extension = os.path.splitext(save_path)
         if extension not in VALID_EXTENSIONS:
             console.print(
                 f"Warning: Boredealis does not support {extension} files. Things might go wrong.",
@@ -350,8 +363,6 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 
-    # @TODO: tune this parameter
-    BLEND_STRENGTH = 0.5
     alpha_image = make_alpha_image(blend_strength=BLEND_STRENGTH)
     fake_clouds_map = generate_perlin_noise_map(
         size=width, iterations=randint(3, 5)

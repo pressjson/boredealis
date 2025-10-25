@@ -70,8 +70,8 @@ trap "Exiting . . ." SIGINT
 
 # test multiple images across a single model
 
-model_path="$HOME/Documents/Boredealis/testing_models/randiv_96_checkpoint_best.pth"
-output_dir="$HOME/Documents/Boredealis_Media/noisy_randiv_96_models/"
+# model_path="$HOME/Documents/Boredealis/testing_models/randiv_64_checkpoint_best.pth"
+# output_dir="$HOME/Documents/Boredealis_Media/noisy_randiv_64_models/"
 # test_images_dir=($HOME/Documents/Boredealis_Media/test_images/*)
 # mkdir -p $output_dir
 
@@ -83,27 +83,27 @@ output_dir="$HOME/Documents/Boredealis_Media/noisy_randiv_96_models/"
 #     save_path="${output_dir}${test_image_base_noext}_${model_base_noext}.png"
 #     command="import test; test.save_test(image_path='$test_image', model_load_path='$model_path', save_path='$save_path')"
 #     echo $command
-#     python -c "$command"
+#     # python -c "$command"
 #     echo
 # done
 
-# test multiple videos across a single model
+# # test multiple videos across a single model
 
-# model_path="$HOME/Documents/Boredealis/testing_models/randiv_128_epoch_23.pth"
-# output_dir="$HOME/Documents/Boredealis_Media/randiv_128_models/"
-test_videos_dir=($HOME/Documents/Boredealis_Media/less_test_videos/*)
-mkdir -p $output_dir
+# # model_path="$HOME/Documents/Boredealis/testing_models/randiv_128_epoch_23.pth"
+# # output_dir="$HOME/Documents/Boredealis_Media/randiv_128_models/"
+# test_videos_dir=($HOME/Documents/Boredealis_Media/test_videos/*)
+# mkdir -p $output_dir
 
-for file in "${test_videos_dir[@]}"; do
-    file_base="${file##*/}"
-    file_base_noext="${file_base%.*}"
-    model_base="${model_path##*/}"
-    model_base_noext="${model_base%.*}"
-    save_path="${output_dir}${file_base_noext}_${model_base_noext}.mp4"
-    command="-i=$file -o=$save_path -c=$model_path"
-    echo "./run.sh $command"
-    ./run.sh $command
-done
+# for file in "${test_videos_dir[@]}"; do
+#     file_base="${file##*/}"
+#     file_base_noext="${file_base%.*}"
+#     model_base="${model_path##*/}"
+#     model_base_noext="${model_base%.*}"
+#     save_path="${output_dir}${file_base_noext}_${model_base_noext}.mp4"
+#     command="-i=$file -o=$save_path -c=$model_path"
+#     echo "./run.sh $command"
+#     # ./run.sh $command
+# done
 
 # test a single image across multiple models
 
@@ -139,3 +139,43 @@ done
 #     echo "./run.sh -i=$test_video -o=$save_path -c=$file"
 #     ./run.sh -i=$test_video -o=$save_path -c=$file
 # done
+
+# do the gauntlet with multiple iterations of multiple models
+
+for BLEND_STRENGTH in {0.0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.7,0.8,0.9,1.0}; do
+    # test multiple images across a single model
+
+    model_path="$HOME/Documents/Boredealis/testing_models/randiv_64_checkpoint_best.pth"
+    output_dir="$HOME/Documents/Boredealis_Media/noisy_randiv_64_models/blend_strength_${BLEND_STRENGTH}/"
+    test_images_dir=($HOME/Documents/Boredealis_Media/test_images/*)
+    mkdir -p $output_dir
+
+    for test_image in "${test_images_dir[@]}"; do
+        test_image_base="${test_image##*/}"
+        test_image_base_noext="${test_image_base%.*}"
+        model_base="${model_path##*/}"
+        model_base_noext="${model_base%.*}"
+        save_path="${output_dir}${test_image_base_noext}_${model_base_noext}.png"
+        command="import test; test.save_test(image_path='$test_image', model_load_path='$model_path', save_path='$save_path', blend_strength=${BLEND_STRENGTH})"
+        echo $command
+        python -c "$command"
+        echo
+    done
+
+    # test multiple videos across a single model
+
+    test_videos_dir=($HOME/Documents/Boredealis_Media/less_test_videos/*)
+    mkdir -p $output_dir
+
+    for file in "${test_videos_dir[@]}"; do
+        file_base="${file##*/}"
+        file_base_noext="${file_base%.*}"
+        model_base="${model_path##*/}"
+        model_base_noext="${model_base%.*}"
+        save_path="${output_dir}${file_base_noext}_${model_base_noext}.mp4"
+        command="-i=$file -o=$save_path -c=$model_path --blend=${BLEND_STRENGTH}"
+        echo "./run.sh $command"
+        ./run.sh $command
+    done
+
+done

@@ -353,7 +353,7 @@ class CombineWithClouds:
     def __init__(self, output_size, noise_strength=None):
         # self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.output_size = output_size
-        self.noise_strength = noise_strength
+        self.alpha_strength = noise_strength
 
     def __call__(self, main_image):
         main_image = main_image.convert("RGBA")
@@ -404,8 +404,8 @@ class CombineWithClouds:
         #     random.uniform(alpha_lower_bound, alpha_upper_bound),
         # )
         blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
-        if self.noise_strength:
-            blend_strength = self.noise_strength
+        if self.alpha_strength:
+            blend_strength = self.alpha_strength
             print(f"blend_strength: {blend_strength}")
 
         alpha_image = make_alpha_image(blend_strength=blend_strength)
@@ -418,7 +418,7 @@ class CombineWithClouds:
         final_image = combined_image.copy()
 
         blurred_image = combined_image.filter(
-            ImageFilter.GaussianBlur(radius=random.randint(0, 1) if self.noise_strength else 0)
+            ImageFilter.GaussianBlur(radius=random.randint(0, 1) if self.alpha_strength else 0)
         )
         # blurred_center = crop_to_center_circle(blurred_image)
 
@@ -437,7 +437,7 @@ class RandomApplyTransforms:
         self.output_size = output_size
         self.random_threshold = random_threshold
         self.noise_weight = noise_weight
-        self.noise_strength = noise_strength
+        self.alpha_strength = noise_strength
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     def __call__(self, sample):
@@ -449,7 +449,7 @@ class RandomApplyTransforms:
             return TF.to_tensor(sample)
 
         # apply multiple clouds
-        cloud = CombineWithClouds(self.output_size, self.noise_strength)
+        cloud = CombineWithClouds(self.output_size, self.alpha_strength)
 
         sample = cloud(sample)
         sample = TF.to_tensor(sample)

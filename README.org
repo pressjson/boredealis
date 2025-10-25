@@ -107,7 +107,7 @@ I was sitting bored in Dr. Scalzo's class during the group presentations. One of
 
 /EXCUSE ME!?!?/
 
-So yeah. It somehow works. Blessed be.
+So yeah. It somehow works. It works better on more than just this example. It works better on my entire testing dataset. Blessed be.
 
 @TODO: Hyperparameter tuning.
 

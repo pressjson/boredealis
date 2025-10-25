@@ -143,7 +143,7 @@ def test(
     preloaded_model=None,
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     verbose=True,
-    noise_strength=0.3,
+    blend_strength=0.3,
 ) -> Image.Image:
     """Tests the model and returns a PIL Image.
 
@@ -183,8 +183,8 @@ def test(
             RandomApplyTransforms(
                 settings.IMAGE_SIZE,
                 settings.RANDOM_APPLY_THRESHOLD,
-                settings.NOISE_STRENGTH,
-                noise_strength,
+                0,
+                noise_strength=blend_strength,
             ),
             T.Normalize(
                 mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]
@@ -367,11 +367,11 @@ def test_with_ram(
 
     return output_image
 
-def save_test(model_load_path=None, image_path=None, save_path=None):
+def save_test(model_load_path=None, image_path=None, save_path=None, blend_strength=None):
     if not save_path:
         print("Error: no save path specified.")
         return -1
-    test(model_load_path=model_load_path, image_path=image_path).save(save_path)
+    test(model_load_path=model_load_path, image_path=image_path, blend_strength=blend_strength).save(save_path)
 
 
 if __name__ == "__main__":
