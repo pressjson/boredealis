@@ -334,17 +334,24 @@ def get_random_valid_coords(sampling_image, boost=0):
             return bound
 
 
-def make_alpha_image(blend_strength=0.0):
+def make_alpha_image(
+    blend_strength=0.0,
+    scale=random.uniform(150, 300),
+    octaves=random.randint(3, 5),
+    persistence=random.uniform(0.4, 0.5),
+    lacunarity=random.uniform(2.0, 2.2),
+    iterations=random.randint(2, 4),
+):
     alpha_world = generate_perlin_noise_map(
         settings.IMAGE_SIZE[0],
-        scale=random.uniform(150, 300),
-        octaves=random.randint(3, 5),
-        persistence=random.uniform(0.4, 0.5),
-        lacunarity=random.uniform(2.0, 2.2),
-        iterations=random.randint(2, 4),
+        scale=scale,
+        octaves=octaves,
+        persistence=persistence,
+        lacunarity=lacunarity,
+        iterations=iterations,
     )
     circle_mask = numpy.array(draw_center_circle())
-    final_alpha = ((alpha_world * blend_strength ** 0.5) * (circle_mask / 255.0) * 255).astype(numpy.uint8)
+    final_alpha = ((alpha_world * blend_strength) * (circle_mask / 255.0) * 255).astype(numpy.uint8)
     return Image.fromarray(final_alpha)
 
 

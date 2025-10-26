@@ -363,9 +363,14 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 
-    alpha_image = make_alpha_image(blend_strength=BLEND_STRENGTH)
+    alpha_image = make_alpha_image(
+        blend_strength=BLEND_STRENGTH,
+        scale=300,
+    )
     fake_clouds_map = generate_perlin_noise_map(
-        size=width, iterations=randint(3, 5)
+        size=width,
+        iterations=randint(1, 2),
+        scale=500,
     )
     # just for safety, in case something goes *terribly* awry
     fake_clouds = colorize_array(
@@ -394,8 +399,12 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
                 fake_clouds_map, lower_bound=lower_bound, upper_bound=upper_bound
             )
             r, g, b = fake_clouds.split()
+            if debug:
+                fake_clouds.show()
 
             fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
+            if debug:
+                fake_clouds.show()
 
         for _ in range(0, iterations):
             image_pil = test.test_with_ram(
@@ -411,6 +420,8 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
         out.write(filtered_frame_bgr)
         if debug:
             print(f"Time to complete a loop: {time.time() - loop_start_time}")
+            image_pil.show()
+            break
 
     cap.release()
     out.release()

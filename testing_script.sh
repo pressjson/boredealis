@@ -145,8 +145,8 @@ trap "Exiting . . ." SIGINT
 for BLEND_STRENGTH in {0.0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.7,0.8,0.9,1.0}; do
     # test multiple images across a single model
 
-    model_path="$HOME/Documents/Boredealis/testing_models/randiv_64_checkpoint_best.pth"
-    output_dir="$HOME/Documents/Boredealis_Media/noisy_randiv_64_models/blend_strength_${BLEND_STRENGTH}/"
+    model_path="$HOME/Documents/Boredealis/testing_models/randiv_96_checkpoint_best.pth"
+    output_dir="$HOME/Documents/Boredealis_Media/noisy_randiv_96_models/blend_strength_${BLEND_STRENGTH}/"
     test_images_dir=($HOME/Documents/Boredealis_Media/test_images/*)
     mkdir -p $output_dir
 

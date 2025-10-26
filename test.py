@@ -6,6 +6,7 @@ import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 import torchvision.transforms as T
+import torchvision.transforms.v2 as T2
 from network import get_random_valid_coords, crop_to_center_circle, colorize_array
 
 if not os.path.exists("local_settings.py"):
@@ -57,7 +58,6 @@ else:
 # that llm is actually smart
 
 from network import DeepUNet, RandomApplyTransforms
-
 
 def load_model(
     model_load_path=os.path.join("models", "64_checkpoint_best.pth"),
@@ -135,6 +135,8 @@ def load_model(
     model.eval()  # Set model to evaluation mode
     return model
 
+
+# @TODO: refactor this crap
 
 def test(
     image_path=os.path.join("readme_images", "Randii.png"),
@@ -298,6 +300,7 @@ def test_with_ram(
     image = image.convert("RGB")
     if verbose:
         print(f"Time to overlay clouds: {time.time() - start_time}")
+        image.show()
 
 
     preprocess = T.Compose(
@@ -327,6 +330,9 @@ def test_with_ram(
                 )
                 image = image.resize(settings.IMAGE_SIZE, resample=image.bilinear)
         input_tensor = preprocess(image)
+        # noise = torch.rand_like(input_tensor) * (settings.NOISE_STRENGTH ** 2)
+        # input_tensor = input_tensor + noise
+        # input_tensor = torch.clamp(input_tensor, 0.0, 1.0)
         input_tensor = input_tensor.unsqueeze(0)  # add batch dimension (b, c, h, w)
         input_tensor = input_tensor.to(device)
         if verbose:
