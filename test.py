@@ -146,6 +146,7 @@ def test(
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     verbose=True,
     blend_strength=0.3,
+    iterations=1,
 ) -> Image.Image:
     """Tests the model and returns a PIL Image.
 
@@ -205,40 +206,44 @@ def test(
             )
             image = image.resize(settings.IMAGE_SIZE, resample=Image.BILINEAR)
             return image
-    input_tensor = preprocess(image)
-    input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension (B, C, H, W)
-    input_tensor = input_tensor.to(device)
-    if verbose:
-        print(f"Input tensor shape: {input_tensor.shape}")
-    # except Exception as e:
-    #     print(f"Error processing image {image_path}: {e}")
-    #     return None
 
-    # --- Inference ---
-    with torch.no_grad():  # Disable gradient calculations for inference
+    if iterations < 1:
+        print(f"Warning: iterations should be greater than or equal to 1, currently {iterations}")
+    for _ in range(iterations): 
+        input_tensor = preprocess(image)
+
+        input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension (B, C, H, W)
+        input_tensor = input_tensor.to(device)
         if verbose:
-            print("Running inference...")
-        output_tensor = model(input_tensor)
-        if verbose:
-            print(
-                f"Output tensor shape: {output_tensor.shape}, min: {output_tensor.min():.2f}, max: {output_tensor.max():.2f}"
-            )
+            print(f"Input tensor shape: {input_tensor.shape}")
+        # except Exception as e:
+        #     print(f"Error processing image {image_path}: {e}")
+        #     return None
 
-    # --- Postprocessing ---
-    output_tensor = output_tensor.squeeze(0)
+        # --- Inference ---
+        with torch.no_grad():  # Disable gradient calculations for inference
+            if verbose:
+                print("Running inference...")
+            output_tensor = model(input_tensor)
+            if verbose:
+                print(
+                    f"Output tensor shape: {output_tensor.shape}, min: {output_tensor.min():.2f}, max: {output_tensor.max():.2f}"
+                )
 
-    # Denormalize: model outputs are in [-1, 1] (due to Tanh)
-    # We need to map them back to [0, 1] for to_pil_image
-    output_tensor_denorm = output_tensor * 0.5 + 0.5
-    # Clamp to ensure values are strictly in [0, 1] range after denormalization
-    output_tensor_denorm = torch.clamp(output_tensor_denorm, 0, 1)
+        # --- Postprocessing ---
+        output_tensor = output_tensor.squeeze(0)
+        # Denormalize: model outputs are in [-1, 1] (due to Tanh)
+        # We need to map them back to [0, 1] for to_pil_image
+        output_tensor_denorm = output_tensor * 0.5 + 0.5
+        # Clamp to ensure values are strictly in [0, 1] range after denormalization
+        output_tensor_denorm = torch.clamp(output_tensor_denorm, 0, 1)
 
-    # Convert tensor to PIL Image
-    output_image = TF.to_pil_image(output_tensor_denorm)
+        # Convert tensor to PIL Image
+        image = TF.to_pil_image(output_tensor_denorm)
     if verbose:
         print("Inference complete. Output image generated.")
 
-    return output_image
+    return image
 
 
 def test_with_ram(
@@ -373,11 +378,11 @@ def test_with_ram(
 
     return output_image
 
-def save_test(model_load_path=None, image_path=None, save_path=None, blend_strength=None):
+def save_test(model_load_path=None, image_path=None, save_path=None, blend_strength=None, iterations=1):
     if not save_path:
         print("Error: no save path specified.")
         return -1
-    test(model_load_path=model_load_path, image_path=image_path, blend_strength=blend_strength).save(save_path)
+    test(model_load_path=model_load_path, image_path=image_path, blend_strength=blend_strength, iterations=iterations).save(save_path)
 
 
 if __name__ == "__main__":

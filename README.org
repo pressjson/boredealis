@@ -111,6 +111,13 @@ So yeah. It somehow works. It works better on more than just this example. It wo
 
 @TODO: Hyperparameter tuning.
 
+So far, the following parameters appear to be best by visual inspection:
+- 64 filters: 0.2-0.35
+- 96 filters: 0.2-0.6
+- 128 filters: 0.2-0.5
+
+The next step is to use proper metrics on the training data.
+
 * The White Paper
 
 Hey, we got accepted to ISVC with Randthree! You can check out the white paper somewhere, whenever Springer gets around to publishing it. In the meantime, you can read it [[file:ISVC_2025_Declouding_The_Aurora_Borealis.pdf][here]] if you are so inclined. If you even exist.
