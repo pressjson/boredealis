@@ -24,6 +24,7 @@ debug = False
 arg_custom_model_path = None
 remove_tmp = True
 use_disk = False
+device = None
 
 for arg in sys.argv[1:]:
     # help
@@ -77,6 +78,9 @@ for arg in sys.argv[1:]:
         iterations = int(arg[13:])
     elif arg.startswith("--blend="):
         BLEND_STRENGTH = float(arg[8:])
+
+    elif arg.startswith("--device="):
+        device = arg[9:]
 
     # I am so sorry to the else-if gods, but I don't want to refactor this
     # @TODO: refactor this
@@ -281,17 +285,24 @@ def main(
         model_path = arg_custom_model_path
     else:
         while True:
+            # response = console.input(
+            #     f"[green]What size model do you want to use?[/green][blue] {VALID_MODEL_SIZES} [/blue]\n"
+            # )
+            # if response not in VALID_MODEL_SIZES:
+            #     console.print("Error: not a valid model size", style="red")
+            #     continue
+            # break
             response = console.input(
-                f"[green]What size model do you want to use?[/green][blue] {VALID_MODEL_SIZES} [/blue]\n"
-            )
-            if response not in VALID_MODEL_SIZES:
-                console.print("Error: not a valid model size", style="red")
+                "[green]What is the path to the model you want to use?[/green]\n")
+            if not os.path.exists(response):
+                console.print(
+                    "Warning: model path does not exist.", style="bold red"
+                )
                 continue
+            model_path = response
             break
         console.print()
         console.print("*" * 50)
-
-        model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
 
     if not os.path.exists(model_path):
         console.print(
@@ -430,7 +441,7 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
     )
 
-main()
+main(device=device)
 # my_rmdir("test_videos")
 # if response_loop("Testing", ["a"]):
 #     print("success!")

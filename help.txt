@@ -9,6 +9,7 @@ Main usage:
     -I=, --iterations=  the number of iterations to have the video go through, 1 by default
                             every extra iterations adds an additional pass of compute (i.e. -I=3 -> 3x times longer than -I=1)
     --blend=            strength of alpha composite with noise, must be between 0.0 and 1.0
+    --device=           pytorch device to use (e.g cuda or cuda:2)
 
 Other useful tidbits:
     -h, --help          prints this help message
