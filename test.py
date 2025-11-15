@@ -378,11 +378,11 @@ def test_with_ram(
 
     return output_image
 
-def save_test(model_load_path=None, image_path=None, save_path=None, blend_strength=None, iterations=1):
+def save_test(model_load_path=None, image_path=None, save_path=None, blend_strength=None, iterations=1, device=None):
     if not save_path:
         print("Error: no save path specified.")
         return -1
-    test(model_load_path=model_load_path, image_path=image_path, blend_strength=blend_strength, iterations=iterations).save(save_path)
+    test(model_load_path=model_load_path, image_path=image_path, blend_strength=blend_strength, iterations=iterations, device=device).save(save_path)
 
 
 if __name__ == "__main__":
