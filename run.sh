@@ -11,18 +11,18 @@ on_exit() {
 
 trap on_exit SIGINT SIGHUP SIGQUIT SIGILL SIGABRT SIGFPE SIGSEGV SIGPIPE SIGALRM SIGTERM
 
-github_models_url_base="https://github.com/pressjson/boredealis/releases/download/Models"
-filters=(96 128)
-extension="_checkpoint_best.pth"
-models_dir="models"
-if [[ ! -d "$models_dir" ]]; then
-    echo "$models_dir directory not found. Cloning models from $github_models_url_base"
-    mkdir "$models_dir"
-    for item in "${filters[@]}"; do
-        url="$github_models_url_base/$item$extension"
-        wget -q --show-progress "$url" --directory-prefix "$models_dir"
-    done
-fi
+# github_models_url_base="https://github.com/pressjson/boredealis/releases/download/Models"
+# filters=(96 128)
+# extension="_checkpoint_best.pth"
+# models_dir="models"
+# if [[ ! -d "$models_dir" ]]; then
+#     echo "$models_dir directory not found. Cloning models from $github_models_url_base"
+#     mkdir "$models_dir"
+#     for item in "${filters[@]}"; do
+#         url="$github_models_url_base/$item$extension"
+#         wget -q --show-progress "$url" --directory-prefix "$models_dir"
+#     done
+# fi
 venv_base="venv"
 path_to_venv="venv/bin/activate"
 
