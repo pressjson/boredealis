@@ -41,6 +41,7 @@ import time
 import asyncio
 from asyncio import Queue
 import random
+from ffmpeg_wrapper import split_filename
 
 def init_queue(folder):
     q = Queue()
@@ -53,16 +54,17 @@ async def worker(device, queue):
         try:
             item = await queue.get()
             input_path = os.path.join(INPUT_DIR, item)
-            output_path = os.path.join(OUTPUT_DIR, item)
-            await filter(input_path, output_path, device)
+            base, ext = split_filename(input_path)
+            output_path = f"{base}.mp4"
+            await filter_video(input_path, output_path, device)
         finally:
             queue.task_done()
 
-async def filter(input_path, output_path, device):
+async def filter_video(input_path, output_path, device):
     cmd = ["python3", "main.py", f"-i={input_path}", f"-o={output_path}", f"-c={MODEL_PATH}", f"--device={device}"]
     print(f"running {cmd}")
-    proc = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await proc.communicate()
+    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await proc.
     # await asyncio.sleep(1)
     print(f"device {device} finished {cmd}")
 
@@ -77,7 +79,7 @@ async def main():
         tasks.append(t)
 
     await q.join()
-    for t in tasks():
+    for t in tasks:
         t.cancel()
 
     await asyncio.gather(*tasks, return_exceptions=True)
