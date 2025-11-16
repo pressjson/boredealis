@@ -11,7 +11,7 @@ NUM_IMAGES = -1
 USE_VGG_DEVICE = False
 VGG_DEVICE_ID = 0
 USE_DEVICE_IDS = False
-DEVICE_IDS = [0, 1, 2, 3]
+DEVICE_IDS = [0]
 # Probablity that the random transforms *do* get applied
 RANDOM_APPLY_THRESHOLD = 1
 NOISE_STRENGTH = 0.05
