@@ -64,7 +64,7 @@ async def filter_video(input_path, output_path, device):
     cmd = ["python3", "main.py", f"-i={input_path}", f"-o={output_path}", f"-c={MODEL_PATH}", f"--device={device}"]
     print(f"running {cmd}")
     proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await proc.
+    stdout, stderr = await proc.communicate()
     # await asyncio.sleep(1)
     print(f"device {device} finished {cmd}")
 
