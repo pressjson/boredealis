@@ -6,24 +6,27 @@ I could do this in bash, but multithreading . . ."""
 
 import sys
 
-INPUT_DIR = ""
-OUTPUT_DIR = ""
+from settings import MODEL_SAVE_PATH
+
 
 for arg in sys.argv[1:]:
-    if arg.startswith("--help") or arg == "-h" or len(sys.argv) != 4:
-        print("usage: python3 batch_video_filter.py <input_dir> <output_dir> <model_path>")
+    if arg.startswith("--help") or arg == "-h" or len(sys.argv) < 4:
+        print("usage: python3 batch_video_filter.py <input_dir> <output_dir> <model_path> <other_flags>")
+        print("<other_flags> should be compatible with main.py")
+        print("<input_dir> and <output_dir> should just be the directories")
         sys.exit(-1)
-    else:
-        INPUT_DIR = sys.argv[1]
-        OUTPUT_DIR = sys.argv[2]
-        MODEL_PATH = sys.argv[3]
+
+INPUT_DIR = sys.argv[1]
+OUTPUT_DIR = sys.argv[2]
+MODEL_PATH = sys.argv[3]
+
+print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(sys.argv) - 4)}")
 
 import os
 if not os.path.exists(INPUT_DIR) or INPUT_DIR == "":
-    print(f"warning: input dir {INPUT_DIR} does not exist")
+    print(f"error: input dir {INPUT_DIR} does not exist")
     sys.exit(-1)
 
-print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH}")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
         
 
@@ -33,10 +36,23 @@ if not os.path.exists("local_settings.py"):
 else:
     import local_settings as settings
 
+class ARGS:
+    def __init__(self, input_path, output_path):
+        self.input_path = input_path
+        self.output_path = output_path
+        self.MODEL_PATH = sys.argv[3]
+        self.OTHERS = sys.argv[4:] if len(sys.argv) >= 5 else []
+
+    def return_command(self):
+        cmd = ["python3", "main.py", f"-i={self.input_path}", f"-o={self.output_path}", f"-c={self.MODEL_PATH}"] 
+        if len(self.OTHERS) > 0:
+            cmd = cmd + [arg for arg in self.OTHERS]
+        return cmd
 
 AVAILABLE_DEVICES = [f"cuda:{x}" for x in settings.DEVICE_IDS]
 print(f"running on {AVAILABLE_DEVICES}")
 MAX_WORKERS = len(AVAILABLE_DEVICES)
+
 import time
 import asyncio
 from asyncio import Queue
@@ -56,16 +72,17 @@ async def worker(device, queue):
             input_path = os.path.join(INPUT_DIR, item)
             base, ext = split_filename(input_path)
             output_path = f"{base}.mp4"
-            await filter_video(input_path, output_path, device)
+            args = ARGS(input_path, output_path)
+            await filter_video(args, device)
         finally:
             queue.task_done()
 
-async def filter_video(input_path, output_path, device):
-    cmd = ["python3", "main.py", f"-i={input_path}", f"-o={output_path}", f"-c={MODEL_PATH}", f"--device={device}"]
+async def filter_video(args: ARGS, device):
+    cmd = args.return_command() + [f"--device={device}"]
     print(f"running {cmd}")
-    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await proc.communicate()
-    # await asyncio.sleep(1)
+    # proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    # stdout, stderr = await proc.communicate()
+    await asyncio.sleep(1)
     print(f"device {device} finished {cmd}")
 
 
