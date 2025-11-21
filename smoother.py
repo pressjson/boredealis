@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models.optical_flow import raft_large, Raft_Large_Weights
+import torch.utils.checkpoint as checkpoint
 import os
 import cv2
 import numpy as np
@@ -142,17 +143,15 @@ class DeflickerCNN(nn.Module):
         # x shape: [B, 15, H, W]
         
         features = self.head(x)
-        features = self.body(features)
+        for layer in self.body:
+            features = checkpoint.checkpoint(layer, features, use_reentrant=False)
+            
         out = self.tail(features)
         
-        # Global Residual connection: Input t (center frame) + Network Output
-        # The network learns the correction mask to remove flicker
-        center_frame_index = 2 * 3 # Start index of frame t (frames are 0,1,2,3,4)
+        center_frame_index = 2 * 3 
         input_t = x[:, center_frame_index:center_frame_index+3, :, :]
         
-        # Clamp output to valid image range
         return torch.sigmoid(out + input_t)
-
 
 
 def warp_frame(frame, flow):
@@ -363,7 +362,6 @@ def main(
     print("Generating mask")
     roi_mask = generate_circle_mask(height=dataset.height, width=dataset.width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
 
-    
     for epoch in range(start_epoch, settings.NUM_EPOCHS):
         start_time = time.time()
         print(f"Epoch {epoch+1} / {settings.NUM_EPOCHS}")
@@ -386,17 +384,17 @@ def main(
             input_frame_curr = inputs_curr[:, 6:9, :, :]
 
             flow = raft_model(input_frame_prev, input_frame_curr)
+            with torch.autocast(device_type='cuda'):
+                output_t = model(inputs_curr)
+                output_prev = model(inputs_prev)
 
-            output_t = model(inputs_curr)
-            output_prev = model(inputs_prev)
-
-            total_loss, t_loss, r_loss = criterion(
-                output_t=output_t,
-                input_t=input_frame_t,
-                output_prev=output_prev.detach(),
-                flow_prev_to_curr=flow,
-                occlusion_mask=roi_mask
-            )
+                total_loss, t_loss, r_loss = criterion(
+                    output_t=output_t,
+                    input_t=input_frame_t,
+                    output_prev=output_prev.detach(),
+                    flow_prev_to_curr=flow,
+                    occlusion_mask=roi_mask
+                )
 
             total_loss.backward()
             optimizer.step()
