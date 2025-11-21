@@ -8,17 +8,23 @@ import sys
 
 from settings import MODEL_SAVE_PATH
 
+def print_help():
+    print("usage: python3 batch_video_filter.py <input_dir> <output_dir> <model_path> <other_flags>")
+    print("<other_flags> should be compatible with main.py")
+    print("<input_dir> and <output_dir> should just be the directories")
 
+if len(sys.argv) < 4:
+    print_help()
+    sys.exit(-1)
 for arg in sys.argv[1:]:
-    if arg.startswith("--help") or arg == "-h" or len(sys.argv) < 4:
-        print("usage: python3 batch_video_filter.py <input_dir> <output_dir> <model_path> <other_flags>")
-        print("<other_flags> should be compatible with main.py")
-        print("<input_dir> and <output_dir> should just be the directories")
+    if arg.startswith("--help") or arg == "-h":
+        print_help()
         sys.exit(-1)
 
 INPUT_DIR = sys.argv[1]
 OUTPUT_DIR = sys.argv[2]
 MODEL_PATH = sys.argv[3]
+EXT = ".mp4"
 
 print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(sys.argv) - 4)}")
 
@@ -44,7 +50,7 @@ class ARGS:
         self.OTHERS = sys.argv[4:] if len(sys.argv) >= 5 else []
 
     def return_command(self):
-        cmd = ["python3", "main.py", f"-i={self.input_path}", f"-o={self.output_path}", f"-c={self.MODEL_PATH}"] 
+        cmd = ["python3", "main.py", f"-i='{self.input_path}'", f"-o='{self.output_path}'", f"-c='{self.MODEL_PATH}'"] 
         if len(self.OTHERS) > 0:
             cmd = cmd + [arg for arg in self.OTHERS]
         return cmd
@@ -57,7 +63,6 @@ import time
 import asyncio
 from asyncio import Queue
 import random
-from ffmpeg_wrapper import split_filename
 
 def init_queue(folder):
     q = Queue()
@@ -70,8 +75,7 @@ async def worker(device, queue):
         try:
             item = await queue.get()
             input_path = os.path.join(INPUT_DIR, item)
-            base, ext = split_filename(input_path)
-            output_path = f"{base}.mp4"
+            output_path = os.path.splitext(os.path.join(OUTPUT_DIR, item))[0] + EXT
             args = ARGS(input_path, output_path)
             await filter_video(args, device)
         finally:
