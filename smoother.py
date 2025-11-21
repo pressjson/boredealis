@@ -306,6 +306,9 @@ def main(
 ):
 
     start_epoch = 0
+
+    if settings.USE_DEVICE_IDS:
+        device = torch.device(f"cuda:{settings.DEVICE_IDS[0]}")
     
     print("Initializing dataset")
     dataset = VideoDataset(data_dir)
@@ -316,7 +319,8 @@ def main(
         exit()
 
     print("Initializing model")
-    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels).to(device)
+    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels)
+    model.to(device)
 
     criterion = DeflickerLoss(lambda_rec=LAMBDA).to(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
     optimizer = torch.optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
