@@ -151,7 +151,7 @@ class DeflickerCNN(nn.Module):
         center_frame_index = 2 * 3 
         input_t = x[:, center_frame_index:center_frame_index+3, :, :]
         
-        return torch.sigmoid(out + input_t)
+        return torch.clamp(out + input_t, 0, 1)
 
 
 def warp_frame(frame, flow):
@@ -392,7 +392,7 @@ def main(
                     output_t=output_t,
                     input_t=input_frame_t,
                     output_prev=output_prev.detach(),
-                    flow_prev_to_curr=flow,
+                    flow=flow,
                     occlusion_mask=roi_mask
                 )
 
@@ -402,7 +402,7 @@ def main(
             running_loss += total_loss.item()
 
             if batch_idx % 20 == 0:
-                print(f"    Batch {batch_idx} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                print(f"    Batch {batch_idx}/{len(dataloader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
     
         avg_loss = running_loss / len(dataloader)
