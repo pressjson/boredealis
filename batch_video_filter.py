@@ -6,24 +6,19 @@ I could do this in bash, but multithreading . . ."""
 
 import sys
 
-from settings import MODEL_SAVE_PATH
-
 def print_help():
     print("usage: python3 batch_video_filter.py <input_dir> <output_dir> <model_path> <other_flags>")
     print("<other_flags> should be compatible with main.py")
     print("<input_dir> and <output_dir> should just be the directories")
 
-if len(sys.argv) < 4:
+if len(sys.argv) < 4 or "-h" in sys.argv or "--help" in sys.argv:
     print_help()
     sys.exit(-1)
-for arg in sys.argv[1:]:
-    if arg.startswith("--help") or arg == "-h":
-        print_help()
-        sys.exit(-1)
 
 INPUT_DIR = sys.argv[1]
 OUTPUT_DIR = sys.argv[2]
 MODEL_PATH = sys.argv[3]
+VIDS_PER_DEVICE = 1
 EXT = ".mp4"
 
 print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(sys.argv) - 4)}")
@@ -55,14 +50,13 @@ class ARGS:
             cmd = cmd + [arg for arg in self.OTHERS]
         return cmd
 
-AVAILABLE_DEVICES = [f"cuda:{x}" for x in settings.DEVICE_IDS]
+AVAILABLE_DEVICES = [f"cuda:{x}" for x in settings.DEVICE_IDS] * VIDS_PER_DEVICE
 print(f"running on {AVAILABLE_DEVICES}")
 MAX_WORKERS = len(AVAILABLE_DEVICES)
 
 import time
 import asyncio
 from asyncio import Queue
-import random
 
 def init_queue(folder):
     q = Queue()
@@ -104,8 +98,10 @@ async def main():
         t.cancel()
 
     await asyncio.gather(*tasks, return_exceptions=True)
-    print("done (:")
 
 if __name__ == "__main__":
+    t = time.time()
     asyncio.run(main())
+    print("done (:")
+    print(f"it only took {time.time() - t} seconds")
     

@@ -247,8 +247,8 @@ def draw_center_circle(
     vertical_offset = 15,
     size = settings.IMAGE_SIZE
 ):
-    width, height = settings.IMAGE_SIZE
     """Draws the center circle."""
+    width, height = settings.IMAGE_SIZE
     radius = 250
     vertical_offset = 15
     # Create a mask:
