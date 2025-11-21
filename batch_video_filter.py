@@ -84,9 +84,9 @@ async def worker(device, queue):
 async def filter_video(args: ARGS, device):
     cmd = args.return_command() + [f"--device={device}"]
     print(f"running {cmd}")
-    # proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    # stdout, stderr = await proc.communicate()
-    await asyncio.sleep(1)
+    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await proc.communicate()
+    # await asyncio.sleep(1)
     print(f"device {device} finished {cmd}")
 
 
