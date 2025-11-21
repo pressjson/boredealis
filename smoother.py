@@ -196,8 +196,9 @@ class RAFT(nn.Module):
     def __init__(self, device):
         super(RAFT, self).__init__()
         self.device = device
-        self.model = raft_large(weights=Raft_Large_Weights.DEFAULT, progress=False).to(device)
-        self.transforms = Raft_Large_Weights.transforms()
+        weights = Raft_Large_Weights.DEFAULT
+        self.model = raft_large(weights=weights, progress=False).to(device)
+        self.transforms = weights.transforms()
 
         self.model.eval()
         for param in self.model.parameters():
@@ -301,6 +302,7 @@ def main(
     device = "cuda" if torch.cuda.is_available() else "cpu",
     LAMBDA=0.5,
     previous_model_path=None,
+    debug=False
 ):
 
     start_epoch = 0
@@ -353,6 +355,10 @@ def main(
         model.train()
         running_loss = 0.0
 
+        if debug:
+            print("Debug ending. Exiting . . .")
+            exit()
+
         for batch_idx, (inputs_curr, inputs_prev) in enumerate(dataloader):
             inputs_curr = inputs_curr.to(device)
             inputs_prev = inputs_prev.to(device)
@@ -401,3 +407,9 @@ def main(
             }
             torch.save(save_dict, settings.MODEL_SAVE_PATH)
             print(f"Model saved to {settings.MODEL_SAVE_PATH}")
+
+if __name__ == "__main__":
+    main(
+        data_dir=os.path.join('media', 'filtered_training_videos'),
+        debug=True
+    )
