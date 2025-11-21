@@ -175,9 +175,8 @@ def warp_frame(frame, flow):
     
     grid = torch.cat((xx, yy), 1).float()
     
-    if frame.is_cuda:
-        grid = grid.cuda()
-        
+    grid = grid.to(frame.device)
+    
     vgrid = grid + flow
     
     # Normalize grid to [-1, 1] for grid_sample
@@ -205,14 +204,26 @@ class RAFT(nn.Module):
             param.requires_grad = False
 
     def forward(self, img1, img2):
+        # 1. Capture the device of the inputs (where your main loop is running)
+        original_device = img1.device
+        
+        # 2. Move inputs to the RAFT model's device (if different)
+        if img1.device != self.device:
+            img1 = img1.to(self.device)
+        if img2.device != self.device:
+            img2 = img2.to(self.device)
+
         with torch.no_grad():
             img1_byte = (img1 * 255).byte()
             img2_byte = (img2 * 255).byte()
 
             img1_pre, img2_pre = self.transforms(img1_byte, img2_byte)
 
-            # take the last flow and return it
-            return self.model(img1_pre, img2_pre)[-1]
+            # 3. Run the model and get the flow
+            flow = self.model(img1_pre, img2_pre)[-1]
+            
+            # 4. Return the flow to the original device (so it matches output_prev later)
+            return flow.to(original_device)    
             
 
 class DeflickerLoss(nn.Module):
@@ -234,18 +245,18 @@ class DeflickerLoss(nn.Module):
             occlusion_mask: (Optional) Weight mask where 0 indicates occlusion/new content
                             and 1 indicates valid tracking.
         """
-        
+        # Hopefully to eliminate device shenanigains 
+        if occlusion_mask is not None and occlusion_mask.device != output_t.device:
+            occlusion_mask = occlusion_mask.to(output_t.device)
+
         # 1. Reconstruction Loss
-        # We want the output to stay close to the original content (prevent drifting)
         rec_loss = self.l1_loss(output_t, input_t)
         
         # 2. Temporal Loss (Warping Loss)
-        # Warp the PREVIOUS output to the CURRENT position
-        # Ideally: output_t should look like warped(output_prev)
+        # warp_frame will now work because we fixed it to use input.device
         warped_prev = warp_frame(output_prev, flow)
         
         if occlusion_mask is not None:
-            # Apply occlusion mask (ignore loss in occluded regions)
             temp_diff = torch.abs(output_t - warped_prev) * occlusion_mask
             temp_loss = torch.mean(temp_diff)
         else:
