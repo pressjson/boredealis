@@ -24,72 +24,133 @@ else:
 class VideoDataset(Dataset):
     """Dataset for loading six(?) frames."""
     def __init__(self, files, height=608, width=608):
+        # using ram
         self.height = height
         self.width = width
-        self.video_files = files
-
         self.samples = []
+        self.video_cache = [] 
 
-        print("Indexing frames . . .")
+        print("Pre-loading videos into RAM (This might take a moment)...")
 
-        for vid_idx, vid_path in enumerate(self.video_files):
+        for vid_idx, vid_path in enumerate(files):
             cap = cv2.VideoCapture(vid_path)
             if not cap.isOpened():
+                print(f"Failed to open {vid_path}")
                 continue
             
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            
-            # We need a continuous block of 6 frames: [t-3, t-2, t-1, t, t+1, t+2]
-            # So t must be >= 3 and t+2 < total_frames
-            # t >= 3
-            # t <= total_frames - 3
+            # 1. Read all frames from this video
+            video_frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                video_frames.append(frame)
+            cap.release()
+
+            if len(video_frames) < 6:
+                continue
+
+            # Stack into a single tensor for this video: [T, H, W, 3]
+            video_tensor = torch.from_numpy(np.stack(video_frames))
+            self.video_cache.append(video_tensor)
+
+            # Create indices
+            total_frames = len(video_frames)
             start_t = 3
             end_t = total_frames - 3
             
+            # The vid_idx now refers to the index in self.video_cache, 
+            # not the original files list (in case some failed to open)
+            cache_idx = len(self.video_cache) - 1
+            
             if end_t > start_t:
                 for t in range(start_t, end_t):
-                    self.samples.append((vid_idx, t))
-            
-            cap.release()
+                    self.samples.append((cache_idx, t))
 
-        print(f"Indexed {len(self.samples)} samples. Sheeeeeeeesh.")
+        print(f"Loaded {len(self.video_cache)} videos. Total samples: {len(self.samples)}")
+    # using disk
+    #     self.height = height
+    #     self.width = width
+    #     self.video_files = files
+
+    #     self.samples = []
+
+    #     print("Indexing frames . . .")
+
+    #     for vid_idx, vid_path in enumerate(self.video_files):
+    #         cap = cv2.VideoCapture(vid_path)
+    #         if not cap.isOpened():
+    #             continue
+            
+    #         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+    #         # We need a continuous block of 6 frames: [t-3, t-2, t-1, t, t+1, t+2]
+    #         # So t must be >= 3 and t+2 < total_frames
+    #         # t >= 3
+    #         # t <= total_frames - 3
+    #         start_t = 3
+    #         end_t = total_frames - 3
+            
+    #         if end_t > start_t:
+    #             for t in range(start_t, end_t):
+    #                 self.samples.append((vid_idx, t))
+            
+    #         cap.release()
+
+    #     print(f"Indexed {len(self.samples)} samples. Sheeeeeeeesh.")
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        vid_idx, t = self.samples[idx]
-        vid_path = self.video_files[vid_idx]
+        cache_idx, t = self.samples[idx]
+        
+        # Retrieve the full video tensor from RAM
+        video_tensor = self.video_cache[cache_idx] # Shape: [Total_Frames, H, W, 3]
+        
+        # Slice the 6 frames we need: [t-3 ... t+2]
+        # (t-3) is the start index, we need 6 frames total
+        frames_uint8 = video_tensor[t-3 : t+3] 
+        
+        # Convert to float [0, 1] and permute to [6, 3, H, W]
+        # This happens on the fly to save RAM storage
+        frames = frames_uint8.permute(0, 3, 1, 2).float() / 255.0
+        
+        # disk
+        # vid_idx, t = self.samples[idx]
+        # vid_path = self.video_files[vid_idx]
         
         # Open video
-        cap = cv2.VideoCapture(vid_path)
-
-        start_frame_idx = t - 3
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_idx)
+        # cap = cv2.VideoCapture(vid_path)
+        # start_frame_idx = t - 3
+        # cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_idx)
         
-        frames = []
-        for _ in range(6):
-            ret, frame = cap.read()
-            if not ret:
-                # Fallback: pad with zeros if read fails (shouldn't happen if index correct)
-                frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-            else:
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # frames = []
+        # for _ in range(6):
+        #     ret, frame = cap.read()
+        #     if not ret:
+        #         # Fallback: pad with zeros if read fails (shouldn't happen if index correct)
+        #         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        #     else:
+        #         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-            # Normalize to [0, 1]
-            frame = frame.astype(np.float32) / 255.0
-            frames.append(frame)
+        #     # Normalize to [0, 1]
+        #     frame = frame.astype(np.float32) / 255.0
+        #     frames.append(frame)
             
-        cap.release()
+        # cap.release()
         
         # Stack frames: [6, H, W, 3] -> [6, 3, H, W]
-        frames_tensor = torch.from_numpy(np.stack(frames)).permute(0, 3, 1, 2)
+        # frames = torch.from_numpy(np.stack(frames)).permute(0, 3, 1, 2)
         
-        # Window Prev (t-1): Indices 0,1,2,3,4 -> correspond to t-3...t+1
-        window_prev = frames_tensor[0:5].reshape(-1, self.height, self.width) # flatten channels: 5*3=15
+        # the same
+        # Window Prev (t-1): Indices 0-4
+        window_prev = frames[0:5].reshape(-1, self.height, self.width)
         
-        # Window Curr (t): Indices 1,2,3,4,5 -> correspond to t-2...t+2
-        window_curr = frames_tensor[1:6].reshape(-1, self.height, self.width)
+        # Window Curr (t): Indices 1-5
+        window_curr = frames[1:6].reshape(-1, self.height, self.width)
         
         return window_curr, window_prev
 
