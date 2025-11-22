@@ -367,7 +367,7 @@ def main(
 
 
     print("Generating mask")
-    roi_mask = generate_circle_mask(height=train_loader.height, width=train_loader.width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
+    roi_mask = generate_circle_mask(height=VideoDataset(data_dir).height, width=VideoDataset(data_dir).width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
 
     for epoch in range(start_epoch, settings.NUM_EPOCHS):
         start_time = time.time()
