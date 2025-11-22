@@ -326,10 +326,16 @@ def main(
     if settings.NUM_IMAGES > 0:
         data_arr = data_arr[: settings.NUM_IMAGES] # reusing NUM_IMAGES to be number of videos
     split_idx = int(len(data_arr) * settings.VALUE_SPLIT)
-    train_dataset = data_arr[: split_idx]
-    valid_dataset = data_arr[split_idx :]
-    train_loader = DataLoader(VideoDataset(train_dataset), batch_size=settings.BATCH_SIZE, shuffle=True, num_workers=settings.NUM_WORKERS)
-    valid_loader = DataLoader(VideoDataset(valid_dataset), batch_size=settings.BATCH_SIZE, shuffle=False, num_workers=settings.NUM_WORKERS)
+
+    train_files = data_arr[: split_idx]
+    valid_files = data_arr[split_idx :]
+
+    train_dataset = VideoDataset(train_files)
+    valid_dataset = VideoDataset(valid_files)
+
+    train_loader = DataLoader(train_dataset, batch_size=settings.BATCH_SIZE, shuffle=True, num_workers=settings.NUM_WORKERS)
+    valid_loader = DataLoader(valid_dataset, batch_size=settings.BATCH_SIZE, shuffle=False, num_workers=settings.NUM_WORKERS)
+
     if not len(train_loader) > 0 or not len(valid_loader) > 0:
         print("error: no training and/or validation samples found. womp womp.")
         exit()
@@ -367,7 +373,7 @@ def main(
 
 
     print("Generating mask")
-    roi_mask = generate_circle_mask(height=VideoDataset(data_dir).height, width=VideoDataset(data_dir).width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
+    roi_mask = generate_circle_mask(height=train_dataset.height, width=train_dataset.width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
 
     for epoch in range(start_epoch, settings.NUM_EPOCHS):
         start_time = time.time()
