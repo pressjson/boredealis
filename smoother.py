@@ -8,8 +8,10 @@ import torch.utils.checkpoint as checkpoint
 import os
 import cv2
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, dataloader
 import time
+
+from settings import VALUE_SPLIT
 
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
@@ -21,11 +23,10 @@ else:
 
 class VideoDataset(Dataset):
     """Dataset for loading six(?) frames."""
-    def __init__(self, root, height=608, width=608):
-        self.root_dir = root
+    def __init__(self, files, height=608, width=608):
         self.height = height
         self.width = width
-        self.video_files = [os.path.join(self.root_dir, video) for video in os.listdir(self.root_dir)]
+        self.video_files = files
 
         self.samples = []
 
@@ -320,13 +321,19 @@ def main(
     if settings.USE_DEVICE_IDS:
         device = torch.device(f"cuda:{settings.DEVICE_IDS[0]}")
     
-    print("Initializing dataset")
-    dataset = VideoDataset(data_dir)
-    if len(dataset) > 0:
-        dataloader = DataLoader(dataset, batch_size=settings.BATCH_SIZE, shuffle=True, num_workers=settings.NUM_WORKERS)
-    else:
-        print("error: no samples found. womp womp.")
+    print("Initializing datasets")
+    data_arr = [os.path.join(data_dir, video) for video in os.listdir(data_dir)]
+    if settings.NUM_IMAGES > 0:
+        data_arr = data_arr[: settings.NUM_IMAGES] # reusing NUM_IMAGES to be number of videos
+    split_idx = int(len(data_arr) * settings.VALUE_SPLIT)
+    train_dataset = data_arr[: split_idx]
+    valid_dataset = data_arr[split_idx :]
+    train_loader = DataLoader(VideoDataset(train_dataset), batch_size=settings.BATCH_SIZE, shuffle=True, num_workers=settings.NUM_WORKERS)
+    valid_loader = DataLoader(VideoDataset(valid_dataset), batch_size=settings.BATCH_SIZE, shuffle=False, num_workers=settings.NUM_WORKERS)
+    if not len(train_loader) > 0 or not len(valid_loader) > 0:
+        print("error: no training and/or validation samples found. womp womp.")
         exit()
+
 
     print("Initializing model")
     model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels)
@@ -360,19 +367,21 @@ def main(
 
 
     print("Generating mask")
-    roi_mask = generate_circle_mask(height=dataset.height, width=dataset.width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
+    roi_mask = generate_circle_mask(height=train_loader.height, width=train_loader.width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
 
     for epoch in range(start_epoch, settings.NUM_EPOCHS):
         start_time = time.time()
         print(f"Epoch {epoch+1} / {settings.NUM_EPOCHS}")
-        model.train()
         running_loss = 0.0
 
         if debug:
             print("Debug ending. Exiting . . .")
             exit()
 
-        for batch_idx, (inputs_curr, inputs_prev) in enumerate(dataloader):
+        # train
+        print("  Beginning training")
+        model.train()
+        for batch_idx, (inputs_curr, inputs_prev) in enumerate(train_loader):
             inputs_curr = inputs_curr.to(device)
             inputs_prev = inputs_prev.to(device)
 
@@ -402,11 +411,46 @@ def main(
             running_loss += total_loss.item()
 
             if batch_idx % 20 == 0:
-                print(f"    Batch {batch_idx}/{len(dataloader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
-    
-        avg_loss = running_loss / len(dataloader)
-        print(f"Epoch {epoch+1} Complete. Average Loss: {avg_loss:.4f}")
+        print(f"  Training finished in {start_time - time.time()} | Total Loss: {running_loss/len(train_loader):.4f}") 
+
+        # validation
+        print("  Beginning validation")
+        validation_loss = 0.0
+        model.eval()
+        for batch_idx, (inputs_curr, inputs_prev) in enumerate(valid_loader):
+            inputs_curr = inputs_curr.to(device)
+            inputs_prev = inputs_prev.to(device)
+
+            input_frame_t = inputs_curr[:, 6:9, :, :]
+            input_frame_prev = inputs_curr[:, 3:6, :, :] 
+            input_frame_curr = inputs_curr[:, 6:9, :, :]
+
+            flow = raft_model(input_frame_prev, input_frame_curr)
+            with torch.autocast(device_type='cuda'):
+                output_t = model(inputs_curr)
+                output_prev = model(inputs_prev)
+
+                total_loss, t_loss, r_loss = criterion(
+                    output_t=output_t,
+                    input_t=input_frame_t,
+                    output_prev=output_prev.detach(),
+                    flow=flow,
+                    occlusion_mask=roi_mask
+                )
+
+            validation_loss += total_loss.item()
+        
+            if batch_idx % 20 == 0:
+                print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+
+        print(f"  Training finished in {start_time - time.time()} | Total Loss: {validation_loss/len(valid_loader):.4f}") 
+
+
+        avg_loss = running_loss / len(train_loader)
+        avg_val = validation_loss / len(valid_loader)
+        print(f"Epoch {epoch+1} Complete. \nAverage Loss: {avg_loss:.4f} | Average Validation Loss {avg_val:.4f}")
         print(f"Epoch duration: {time.time() - start_time:.2f}s")
  
         if epoch % settings.EPOCH_SAVE_INTERVAL == 0:
