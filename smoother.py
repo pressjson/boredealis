@@ -11,8 +11,6 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader, dataloader
 import time
 
-from settings import VALUE_SPLIT
-
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
     import settings
@@ -205,8 +203,9 @@ class DeflickerCNN(nn.Module):
         # x shape: [B, 15, H, W]
         
         features = self.head(x)
-        for layer in self.body:
-            features = checkpoint.checkpoint(layer, features, use_reentrant=False)
+        # Uncomment if CUDA OOM errors
+        # for layer in self.body:
+        #     features = checkpoint.checkpoint(layer, features, use_reentrant=False)
             
         out = self.tail(features)
         
@@ -377,6 +376,9 @@ def main(
     debug=False
 ):
 
+    if not os.path.exists(settings.MODEL_SAVE_PATH):
+        os.mkdir(settings.MODEL_SAVE_PATH)
+
     start_epoch = 0
 
     if settings.USE_DEVICE_IDS:
@@ -529,7 +531,11 @@ def main(
                 'num_res_blocks': num_res_blocks,
                 'hidden_channels': hidden_channels,
             }
-            torch.save(save_dict, settings.MODEL_SAVE_PATH)
+            model_name = f"checkpoint_epoch_{epoch}.pth"
+            torch.save(
+                save_dict,
+                os.path.join(settings.MODEL_SAVE_PATH, model_name),
+            )
             print(f"Model saved to {settings.MODEL_SAVE_PATH}")
 
 if __name__ == "__main__":
