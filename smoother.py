@@ -11,6 +11,12 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader, dataloader
 import time
 
+# ulimit -n
+# > 1024
+# not good for ram. instead use sharing strategy
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
     import settings
@@ -51,7 +57,7 @@ class VideoDataset(Dataset):
                 continue
 
             # Stack into a single tensor for this video: [T, H, W, 3]
-            video_tensor = torch.from_numpy(np.stack(video_frames))
+            video_tensor = torch.from_numpy(np.stack(video_frames)).share_memory_()
             self.video_cache.append(video_tensor)
 
             # Create indices
