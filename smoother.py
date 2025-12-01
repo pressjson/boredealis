@@ -464,12 +464,13 @@ def main(
             flow = raft_model(input_frame_prev, input_frame_curr)
             with torch.autocast(device_type='cuda'):
                 output_t = model(inputs_curr)
-                output_prev = model(inputs_prev)
+                with torch.no_grad():
+                    output_prev = model(inputs_prev)
 
                 total_loss, t_loss, r_loss = criterion(
                     output_t=output_t,
                     input_t=input_frame_t,
-                    output_prev=output_prev.detach(),
+                    output_prev=output_prev,
                     flow=flow,
                     occlusion_mask=roi_mask
                 )
@@ -482,7 +483,7 @@ def main(
             if batch_idx % 20 == 0:
                 print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
-        print(f"  Training finished in {start_time - time.time()} | Total Loss: {running_loss/len(train_loader):.4f}") 
+        print(f"  Training finished in {start_time - time.time():4f}s | Total Loss: {running_loss/len(train_loader):.4f}") 
 
         # validation
         print("  Beginning validation")
@@ -499,12 +500,13 @@ def main(
             flow = raft_model(input_frame_prev, input_frame_curr)
             with torch.autocast(device_type='cuda'):
                 output_t = model(inputs_curr)
-                output_prev = model(inputs_prev)
+                with torch.no_grad():
+                    output_prev = model(inputs_prev)
 
                 total_loss, t_loss, r_loss = criterion(
                     output_t=output_t,
                     input_t=input_frame_t,
-                    output_prev=output_prev.detach(),
+                    output_prev=output_prev,
                     flow=flow,
                     occlusion_mask=roi_mask
                 )
@@ -514,7 +516,7 @@ def main(
             if batch_idx % 20 == 0:
                 print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
-        print(f"  Training finished in {start_time - time.time()} | Total Loss: {validation_loss/len(valid_loader):.4f}") 
+        print(f"  Training finished in {start_time - time.time():4f}s | Total Loss: {validation_loss/len(valid_loader):.4f}") 
 
 
         avg_loss = running_loss / len(train_loader)
