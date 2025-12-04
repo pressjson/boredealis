@@ -186,6 +186,9 @@ class DeflickerCNN(nn.Module):
             Shape: [Batch, 3, Height, Width]
     """
     def __init__(self, input_frames=5, num_res_blocks=8, hidden_channels=64):
+        if input_frames % 2 == 0:
+            print("Error: input_frames must be odd.")
+            exit(-1)
         super(DeflickerCNN, self).__init__()
         
         in_channels = input_frames * 3  # 5 frames * 3 channels = 15
@@ -333,10 +336,12 @@ class DeflickerLoss(nn.Module):
         return total_loss, temp_loss, rec_loss
 
 
-def load_checkpoint(model, optimizer, checkpoint_path):
-    """Takes in (model, optimizer, checkpoint_path) and returns start_epochs.
+def load_checkpoint(model, optimizer, checkpoint_path, device):
+    """Takes in (model, optimizer, checkpoint_path, device) and returns start_epochs.
+
+    Note: model and optimizer are passed by reference or similar, so in C it would be &model, &optimizer
     """
-    checkpoint = torch.load(checkpoint_path)
+    checkpoint = torch.load(checkpoint_path, device)
     model_state = checkpoint['model_state_dict']
     optimizer_state = checkpoint['optimizer_state_dict']
 
@@ -432,7 +437,7 @@ def main(
         print(f"Resuming with: Depth={num_res_blocks}, Width={hidden_channels}")
 
         print(f"Loading previous model from {previous_model_path}")
-        start_epoch = load_checkpoint(model, optimizer, previous_model_path)
+        start_epoch = load_checkpoint(model, optimizer, previous_model_path, device)
 
     if settings.USE_DEVICE_IDS:
         print("Wrapping model with nn.DataParallel")
