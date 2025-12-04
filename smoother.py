@@ -27,12 +27,13 @@ else:
 
 class VideoDataset(Dataset):
     """Dataset for loading six(?) frames."""
-    def __init__(self, files, height=608, width=608):
+    def __init__(self, files, height=608, width=608, window=5):
         # using ram
         self.height = height
         self.width = width
         self.samples = []
         self.video_cache = [] 
+        self.window = window
 
         print("Pre-loading videos into RAM (This might take a moment)...")
 
@@ -53,7 +54,7 @@ class VideoDataset(Dataset):
                 video_frames.append(frame)
             cap.release()
 
-            if len(video_frames) < 6:
+            if len(video_frames) < window + 1:
                 continue
 
             # Stack into a single tensor for this video: [T, H, W, 3]
@@ -62,8 +63,8 @@ class VideoDataset(Dataset):
 
             # Create indices
             total_frames = len(video_frames)
-            start_t = 3
-            end_t = total_frames - 3
+            start_t = window // 2 + 1
+            end_t = total_frames - window // 2 - 1
             
             # The vid_idx now refers to the index in self.video_cache, 
             # not the original files list (in case some failed to open)
@@ -75,35 +76,35 @@ class VideoDataset(Dataset):
 
         print(f"Loaded {len(self.video_cache)} videos. Total samples: {len(self.samples)}")
     # using disk
-    #     self.height = height
-    #     self.width = width
-    #     self.video_files = files
+        # self.height = height
+        # self.width = width
+        # self.video_files = files
 
-    #     self.samples = []
+        # self.samples = []
 
-    #     print("Indexing frames . . .")
+        # print("Indexing frames . . .")
 
-    #     for vid_idx, vid_path in enumerate(self.video_files):
-    #         cap = cv2.VideoCapture(vid_path)
-    #         if not cap.isOpened():
-    #             continue
+        # for vid_idx, vid_path in enumerate(self.video_files):
+        #     cap = cv2.VideoCapture(vid_path)
+        #     if not cap.isOpened():
+        #         continue
             
-    #         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        #     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
-    #         # We need a continuous block of 6 frames: [t-3, t-2, t-1, t, t+1, t+2]
-    #         # So t must be >= 3 and t+2 < total_frames
-    #         # t >= 3
-    #         # t <= total_frames - 3
-    #         start_t = 3
-    #         end_t = total_frames - 3
+        #     # We need a continuous block of 6 frames: [t-3, t-2, t-1, t, t+1, t+2]
+        #     # So t must be >= 3 and t+2 < total_frames
+        #     # t >= 3
+        #     # t <= total_frames - 3
+        #     start_t = window // 2 + 1
+        #     end_t = total_frames - window // 2 - 1
             
-    #         if end_t > start_t:
-    #             for t in range(start_t, end_t):
-    #                 self.samples.append((vid_idx, t))
+        #     if end_t > start_t:
+        #         for t in range(start_t, end_t):
+        #             self.samples.append((vid_idx, t))
             
-    #         cap.release()
+        #     cap.release()
 
-    #     print(f"Indexed {len(self.samples)} samples. Sheeeeeeeesh.")
+        # print(f"Indexed {len(self.samples)} samples. Sheeeeeeeesh.")
 
     def __len__(self):
         return len(self.samples)
@@ -116,7 +117,8 @@ class VideoDataset(Dataset):
         
         # Slice the 6 frames we need: [t-3 ... t+2]
         # (t-3) is the start index, we need 6 frames total
-        frames_uint8 = video_tensor[t-3 : t+3] 
+        padding = self.window // 2 + 1
+        frames_uint8 = video_tensor[t-padding : t+padding] 
         
         # Convert to float [0, 1] and permute to [6, 3, H, W]
         # This happens on the fly to save RAM storage
@@ -151,10 +153,10 @@ class VideoDataset(Dataset):
         
         # the same
         # Window Prev (t-1): Indices 0-4
-        window_prev = frames[0:5].reshape(-1, self.height, self.width)
+        window_prev = frames[0:self.window].reshape(-1, self.height, self.width)
         
         # Window Curr (t): Indices 1-5
-        window_curr = frames[1:6].reshape(-1, self.height, self.width)
+        window_curr = frames[1:self.window + 1].reshape(-1, self.height, self.width)
         
         return window_curr, window_prev
 
@@ -180,19 +182,29 @@ class DeflickerCNN(nn.Module):
     """
     Multi-frame Convolutional Network for Video Deflickering.
     
-    Input: 5 RGB frames concatenated channel-wise (t-2, t-1, t, t+1, t+2).
-           Shape: [Batch, 15, Height, Width] (Designed for 608x608 inputs)
+    Input: n RGB frames concatenated channel-wise (..., t-2, t-1, t, t+1, t+2, ...).
+           Shape: [Batch, input_frames * 3, Height, Width] (Designed for 608x608 inputs)
     Output: 1 RGB frame (stabilized frame t).
             Shape: [Batch, 3, Height, Width]
+
+    Args:
+        input_frames: Size of the window. Must be odd.
+        num_res_blocks: How many residual blocks to use
+        hidden_channels: How many convolution filters per res block
+        save_memory: False -> faster compute, but more VRAM; True -> slower compute, less VRAM
+            use False for testing, and True for training
     """
-    def __init__(self, input_frames=5, num_res_blocks=8, hidden_channels=64):
+    def __init__(self, input_frames=5, num_res_blocks=8, hidden_channels=64, save_memory=False):
         if input_frames % 2 == 0:
             print("Error: input_frames must be odd.")
             exit(-1)
         super(DeflickerCNN, self).__init__()
+
+        self.save_memory = save_memory
+        self.input_frames = input_frames
         
-        in_channels = input_frames * 3  # 5 frames * 3 channels = 15
-        
+        in_channels = input_frames * 3  # frames * 3 channels (R, G, B)       
+
         # Initial Feature Extraction
         self.head = nn.Sequential(
             nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1),
@@ -212,14 +224,17 @@ class DeflickerCNN(nn.Module):
         # x shape: [B, 15, H, W]
         
         features = self.head(x)
-        # Uncomment if CUDA OOM errors
-        # for layer in self.body:
-        #     features = checkpoint.checkpoint(layer, features, use_reentrant=False)
+
+        if self.save_memory:
+            for layer in self.body:
+                features = checkpoint.checkpoint(layer, features, use_reentrant=False)
+        else:
+            features = self.body(features)
             
         out = self.tail(features)
         
-        center_frame_index = 2 * 3 
-        input_t = x[:, center_frame_index:center_frame_index+3, :, :]
+        start_channel = (self.input_frames // 2) * 3 # middle frame * 3 channels R,G,B
+        input_t = x[:, start_channel : start_channel + 3, :, :]
         
         return torch.clamp(out + input_t, 0, 1)
 
@@ -273,7 +288,6 @@ class RAFT(nn.Module):
             param.requires_grad = False
 
     def forward(self, img1, img2):
-        # 1. Capture the device of the inputs (where your main loop is running)
         original_device = img1.device
         
         # 2. Move inputs to the RAFT model's device (if different)
@@ -395,28 +409,9 @@ def main(
     if settings.USE_DEVICE_IDS:
         device = torch.device(f"cuda:{settings.DEVICE_IDS[0]}")
     
-    print("Initializing datasets")
-    data_arr = [os.path.join(data_dir, video) for video in os.listdir(data_dir)]
-    if settings.NUM_IMAGES > 0:
-        data_arr = data_arr[: settings.NUM_IMAGES] # reusing NUM_IMAGES to be number of videos
-    split_idx = int(len(data_arr) * settings.VALUE_SPLIT)
-
-    train_files = data_arr[: split_idx]
-    valid_files = data_arr[split_idx :]
-
-    train_dataset = VideoDataset(train_files)
-    valid_dataset = VideoDataset(valid_files)
-
-    train_loader = DataLoader(train_dataset, batch_size=settings.BATCH_SIZE, shuffle=True, num_workers=settings.NUM_WORKERS)
-    valid_loader = DataLoader(valid_dataset, batch_size=settings.BATCH_SIZE, shuffle=False, num_workers=settings.NUM_WORKERS)
-
-    if not len(train_loader) > 0 or not len(valid_loader) > 0:
-        print("error: no training and/or validation samples found. womp womp.")
-        exit()
-
 
     print("Initializing model")
-    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels)
+    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels, save_memory=True,)
     model.to(device)
 
     criterion = DeflickerLoss(lambda_rec=LAMBDA).to(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
@@ -445,6 +440,24 @@ def main(
 
     raft_model = RAFT(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
 
+    print("Initializing datasets")
+    data_arr = [os.path.join(data_dir, video) for video in os.listdir(data_dir)]
+    if settings.NUM_IMAGES > 0:
+        data_arr = data_arr[: settings.NUM_IMAGES] # reusing NUM_IMAGES to be number of videos
+    split_idx = int(len(data_arr) * settings.VALUE_SPLIT)
+
+    train_files = data_arr[: split_idx]
+    valid_files = data_arr[split_idx :]
+
+    train_dataset = VideoDataset(train_files, window=input_frames)
+    valid_dataset = VideoDataset(valid_files, window=input_frames)
+
+    train_loader = DataLoader(train_dataset, batch_size=settings.BATCH_SIZE, shuffle=True, num_workers=settings.NUM_WORKERS)
+    valid_loader = DataLoader(valid_dataset, batch_size=settings.BATCH_SIZE, shuffle=False, num_workers=settings.NUM_WORKERS)
+
+    if not len(train_loader) > 0 or not len(valid_loader) > 0:
+        print("error: no training and/or validation samples found. womp womp.")
+        exit()
 
     print("Generating mask")
     roi_mask = generate_circle_mask(height=train_dataset.height, width=train_dataset.width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)

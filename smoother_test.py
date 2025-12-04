@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from smoother import DeflickerCNN, load_checkpoint
+from smoother import DeflickerCNN, load_checkpoint, DeflickerLoss, RAFT, generate_circle_mask
 
 import os
 if not os.path.exists("local_settings.py"):
@@ -16,6 +16,66 @@ import torch
 from rich.progress import track
 from collections import deque
 
+def video_loss(input_video_path="", LAMBDA=0.0, device=""):
+    criterion = DeflickerLoss(lambda_rec=LAMBDA).to(device)
+    raft_model = RAFT(device)
+    roi_mask = generate_circle_mask(device=device)
+
+    cap = cv2.VideoCapture(input_video_path)
+    if not cap.isOpened():
+        print(f"Error: Cannot open video {input_video_path}")
+        return -1
+
+    # only need two for loss
+    ret, frame_prev = cap.read()
+    if not ret:
+        print("Error: Could not read first frame.")
+        return -1
+    frame_prev = cv2.cvtColor(frame_prev, cv2.COLOR_BGR2RGB)
+
+    prev_tensor = torch.from_numpy(frame_prev).permute(2, 0, 1).float() / 255.0
+    prev_tensor = prev_tensor.unsqueeze(0).to(device)
+
+    _, _, h, w = prev_tensor.shape
+    if roi_mask.shape[-2:] != (h, w):
+        roi_mask = torch.nn.functional.interpolate(
+            roi_mask.unsqueeze(0).unsqueeze(0), size=(h, w), mode='nearest'
+        ).squeeze()
+        print("Warning: roi mask and prev_tensor are not the same shape")
+        print(f"roi shape: {roi_mask.shape[-2:]}")
+        print(f"tensor shape: {(h, w)}")
+
+    running_loss = 0.0
+    t_loss = 0.0
+    r_loss = 0.0
+    valid_pairs = 0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    for _ in track(range(int(total_frames))):
+        with torch.no_grad():
+            ret, curr_frame = cap.read()
+            if not ret:
+                break
+            curr_frame = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2RGB)
+
+            curr_tensor = torch.from_numpy(curr_frame).permute(2, 0, 1).float() / 255.0
+            curr_tensor = curr_tensor.unsqueeze(0).to(device)
+            flow_p2c = raft_model(prev_tensor, curr_tensor)
+
+            total_loss, t_loss, r_loss = criterion(
+                output_t=curr_tensor,
+                input_t=curr_tensor,
+                output_prev=prev_tensor,
+                flow=flow_p2c,
+                occlusion_mask=roi_mask
+            )
+            valid_pairs += 1
+            running_loss += total_loss.item()
+            print(f"  Item {valid_pairs}: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f}") 
+
+    print(f"Total loss: {running_loss/valid_pairs:.4f} | Temp: {t_loss/valid_pairs:.4f} | Rec: {r_loss/valid_pairs:.4f}") 
+
+
+    
 def main(
     model_path="",
     input_video_path="",
@@ -51,7 +111,7 @@ def main(
     model.to(device)
 
     if verbose:
-        print(f"Instantiated with: Input frames={input_frames}, Depth={num_res_blocks}, Width={hidden_channels}")
+        print(f"Instantiated model with: Input frames={input_frames}, Depth={num_res_blocks}, Width={hidden_channels}")
 
     # oddity of recycling code
     optimizer = torch.optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
