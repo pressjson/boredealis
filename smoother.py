@@ -219,10 +219,12 @@ class DeflickerCNN(nn.Module):
         
         # Final Reconstruction
         self.tail = nn.Conv2d(hidden_channels, 3, kernel_size=3, padding=1)
+
+        # force init weights to zero for reconstruction loss during training
+        nn.init.constant_(self.tail.weight, 0)
+        nn.init.constant_(self.tail.bias, 0)
         
     def forward(self, x):
-        # x shape: [B, 15, H, W]
-        
         features = self.head(x)
 
         if self.save_memory:
@@ -233,7 +235,7 @@ class DeflickerCNN(nn.Module):
             
         out = self.tail(features)
         
-        start_channel = (self.input_frames // 2) * 3 # middle frame * 3 channels R,G,B
+        start_channel = (self.input_frames // 2) * 3 # middle frame * (3 channels R,G,B)
         input_t = x[:, start_channel : start_channel + 3, :, :]
         
         return torch.clamp(out + input_t, 0, 1)

@@ -70,9 +70,9 @@ def video_loss(input_video_path="", LAMBDA=0.0, device=""):
             )
             valid_pairs += 1
             running_loss += total_loss.item()
-            print(f"  Item {valid_pairs}: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f}") 
+            print(f"  Item {valid_pairs}: {total_loss.item():.4f}") 
 
-    print(f"Total loss: {running_loss/valid_pairs:.4f} | Temp: {t_loss/valid_pairs:.4f} | Rec: {r_loss/valid_pairs:.4f}") 
+    print(f"Total loss: {running_loss/valid_pairs:.4f}") 
 
 
     
@@ -107,7 +107,7 @@ def main(
     del temp_ckpt
 
     # then init correctly sized model
-    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels)
+    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels, save_memory=True)
     model.to(device)
 
     if verbose:
