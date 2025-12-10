@@ -233,14 +233,6 @@ class RAFT(nn.Module):
             param.requires_grad = False
 
     def forward(self, img1, img2):
-        original_device = img1.device
-        
-        # 2. Move inputs to the RAFT model's device (if different)
-        if img1.device != self.device:
-            img1 = img1.to(self.device)
-        if img2.device != self.device:
-            img2 = img2.to(self.device)
-
         with torch.no_grad():
             img1_byte = (img1 * 255).byte()
             img2_byte = (img2 * 255).byte()
@@ -251,7 +243,7 @@ class RAFT(nn.Module):
             flow = self.model(img1_pre, img2_pre)[-1]
             
             # 4. Return the flow to the original device (so it matches output_prev later)
-            return flow.to(original_device)    
+            return flow
             
 
 class DeflickerLoss(nn.Module):
@@ -414,6 +406,8 @@ def main(
         model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
 
     raft_model = RAFT(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
+    if settings.USE_DEVICE_IDS:
+        raft_model = nn.DataParallel(raft_model, device_ids=settings.DEVICE_IDS)
 
     print("Initializing datasets")
     data_arr = [os.path.join(data_dir, video) for video in os.listdir(data_dir)]
@@ -488,32 +482,32 @@ def main(
         print("  Beginning validation")
         validation_loss = 0.0
         model.eval()
-        for batch_idx, (inputs_curr, inputs_prev) in enumerate(valid_loader):
-            inputs_curr = inputs_curr.to(device)
-            inputs_prev = inputs_prev.to(device)
+        with torch.no_grad():
+            for batch_idx, (inputs_curr, inputs_prev) in enumerate(valid_loader):
+                inputs_curr = inputs_curr.to(device)
+                inputs_prev = inputs_prev.to(device)
 
-            input_frame_t = inputs_curr[:, 6:9, :, :]
-            input_frame_prev = inputs_curr[:, 3:6, :, :] 
-            input_frame_curr = inputs_curr[:, 6:9, :, :]
+                input_frame_t = inputs_curr[:, 6:9, :, :]
+                input_frame_prev = inputs_curr[:, 3:6, :, :] 
+                input_frame_curr = inputs_curr[:, 6:9, :, :]
 
-            flow = raft_model(input_frame_prev, input_frame_curr)
-            with torch.autocast(device_type='cuda'):
-                output_t = model(inputs_curr)
-                with torch.no_grad():
+                flow = raft_model(input_frame_prev, input_frame_curr)
+                with torch.autocast(device_type='cuda'):
+                    output_t = model(inputs_curr)
                     output_prev = model(inputs_prev)
 
-                total_loss, t_loss, r_loss, p_loss = criterion(
-                    output_t=output_t,
-                    input_t=input_frame_t,
-                    output_prev=output_prev,
-                    flow=flow,
-                    occlusion_mask=roi_mask
-                )
+                    total_loss, t_loss, r_loss, p_loss = criterion(
+                        output_t=output_t,
+                        input_t=input_frame_t,
+                        output_prev=output_prev,
+                        flow=flow,
+                        occlusion_mask=roi_mask
+                    )
 
-            validation_loss += total_loss.item()
-        
-            if batch_idx % 20 == 0:
-                print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                validation_loss += total_loss.item()
+
+                if batch_idx % 20 == 0:
+                    print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
         print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {validation_loss/len(valid_loader):.4f}") 
 
