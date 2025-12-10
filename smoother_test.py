@@ -61,7 +61,7 @@ def video_loss(input_video_path="", LAMBDA=0.0, device=""):
             curr_tensor = curr_tensor.unsqueeze(0).to(device)
             flow_p2c = raft_model(prev_tensor, curr_tensor)
 
-            total_loss, t_loss, r_loss = criterion(
+            total_loss, t_loss, r_loss, p_loss = criterion(
                 output_t=curr_tensor,
                 input_t=curr_tensor,
                 output_prev=prev_tensor,
