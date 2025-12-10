@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models.optical_flow import raft_large, Raft_Large_Weights
+from torchvision.models import vgg19, VGG19_Weights
 import torch.utils.checkpoint as checkpoint
 import os
 import cv2
@@ -75,36 +76,6 @@ class VideoDataset(Dataset):
                     self.samples.append((cache_idx, t))
 
         print(f"Loaded {len(self.video_cache)} videos. Total samples: {len(self.samples)}")
-    # using disk
-        # self.height = height
-        # self.width = width
-        # self.video_files = files
-
-        # self.samples = []
-
-        # print("Indexing frames . . .")
-
-        # for vid_idx, vid_path in enumerate(self.video_files):
-        #     cap = cv2.VideoCapture(vid_path)
-        #     if not cap.isOpened():
-        #         continue
-            
-        #     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            
-        #     # We need a continuous block of 6 frames: [t-3, t-2, t-1, t, t+1, t+2]
-        #     # So t must be >= 3 and t+2 < total_frames
-        #     # t >= 3
-        #     # t <= total_frames - 3
-        #     start_t = window // 2 + 1
-        #     end_t = total_frames - window // 2 - 1
-            
-        #     if end_t > start_t:
-        #         for t in range(start_t, end_t):
-        #             self.samples.append((vid_idx, t))
-            
-        #     cap.release()
-
-        # print(f"Indexed {len(self.samples)} samples. Sheeeeeeeesh.")
 
     def __len__(self):
         return len(self.samples)
@@ -124,34 +95,6 @@ class VideoDataset(Dataset):
         # This happens on the fly to save RAM storage
         frames = frames_uint8.permute(0, 3, 1, 2).float() / 255.0
         
-        # disk
-        # vid_idx, t = self.samples[idx]
-        # vid_path = self.video_files[vid_idx]
-        
-        # Open video
-        # cap = cv2.VideoCapture(vid_path)
-        # start_frame_idx = t - 3
-        # cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame_idx)
-        
-        # frames = []
-        # for _ in range(6):
-        #     ret, frame = cap.read()
-        #     if not ret:
-        #         # Fallback: pad with zeros if read fails (shouldn't happen if index correct)
-        #         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        #     else:
-        #         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-        #     # Normalize to [0, 1]
-        #     frame = frame.astype(np.float32) / 255.0
-        #     frames.append(frame)
-            
-        # cap.release()
-        
-        # Stack frames: [6, H, W, 3] -> [6, 3, H, W]
-        # frames = torch.from_numpy(np.stack(frames)).permute(0, 3, 1, 2)
-        
-        # the same
         # Window Prev (t-1): Indices 0-4
         window_prev = frames[0:self.window].reshape(-1, self.height, self.width)
         
@@ -315,10 +258,22 @@ class DeflickerLoss(nn.Module):
     """
     Combined loss: Temporal Consistency + Reconstruction
     """
-    def __init__(self, lambda_rec=1.0):
+    def __init__(self, lambda_l1=1.0, lambda_rec=1.0, lambda_perc=1.0, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else "cuda"):
         super(DeflickerLoss, self).__init__()
         self.lambda_rec = lambda_rec
+        self.lambda_perc = lambda_perc
+        self.lambda_l1 = lambda_l1
         self.l1_loss = nn.L1Loss()
+        vgg = vgg19(weights=VGG19_Weights).features
+        self.vgg = vgg[:29].to(device).eval()
+
+        for param in self.vgg.parameters():
+            param.requires_grad = False
+
+        # magic numbers from Gemini
+        self.register_buffer('mean', torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(device))
+        self.register_buffer('std', torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(device))
+
 
     def forward(self, output_t, input_t, output_prev, flow, occlusion_mask=None):
         """
@@ -330,14 +285,30 @@ class DeflickerLoss(nn.Module):
             occlusion_mask: (Optional) Weight mask where 0 indicates occlusion/new content
                             and 1 indicates valid tracking.
         """
+        # 1. Reconstruction Loss
+        if input_t.device != output_t.device:
+            input_t = input_t.to(output_t.device)
+        rec_loss = self.l1_loss(output_t, input_t)
+
+        # 2: VGG Loss
+        vgg_device = self.mean.device
+            
+        # Normalize inputs: (x - mean) / std
+        # We must move the inputs to vgg_device to perform the forward pass
+        out_norm = (output_t.to(vgg_device) - self.mean) / self.std
+        in_norm = (input_t.to(vgg_device) - self.mean) / self.std
+
+        # Extract features
+        out_feat = self.vgg(out_norm)
+        in_feat = self.vgg(in_norm)
+
+        # Calculate feature loss
+        perc_loss = self.l1_loss(out_feat, in_feat)
+         
+        # 3. Temporal Loss (Warping Loss)
         # Hopefully to eliminate device shenanigains 
         if occlusion_mask is not None and occlusion_mask.device != output_t.device:
             occlusion_mask = occlusion_mask.to(output_t.device)
-
-        # 1. Reconstruction Loss
-        rec_loss = self.l1_loss(output_t, input_t)
-        
-        # 2. Temporal Loss (Warping Loss)
         # warp_frame will now work because we fixed it to use input.device
         warped_prev = warp_frame(output_prev, flow)
         
@@ -347,9 +318,9 @@ class DeflickerLoss(nn.Module):
         else:
             temp_loss = self.l1_loss(output_t, warped_prev)
             
-        total_loss = temp_loss + (self.lambda_rec * rec_loss)
+        total_loss = (self.lambda_l1 * temp_loss) + (self.lambda_rec * rec_loss) + self.lambda_perc * perc_loss.to(output_t.device)
         
-        return total_loss, temp_loss, rec_loss
+        return total_loss, temp_loss, rec_loss, perc_loss
 
 
 def load_checkpoint(model, optimizer, checkpoint_path, device):
@@ -416,7 +387,9 @@ def main(
     model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels, save_memory=True,)
     model.to(device)
 
-    criterion = DeflickerLoss(lambda_rec=LAMBDA).to(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
+    criterion = DeflickerLoss(
+        lambda_l1=0.0, lambda_perc=1.0, lambda_rec=LAMBDA, device = settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device
+    ).to(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
     optimizer = torch.optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
 
     if previous_model_path and os.path.exists(previous_model_path):
@@ -493,7 +466,7 @@ def main(
                 with torch.no_grad():
                     output_prev = model(inputs_prev)
 
-                total_loss, t_loss, r_loss = criterion(
+                total_loss, t_loss, r_loss, p_loss = criterion(
                     output_t=output_t,
                     input_t=input_frame_t,
                     output_prev=output_prev,
@@ -507,9 +480,9 @@ def main(
             running_loss += total_loss.item()
 
             if batch_idx % 20 == 0:
-                print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
-        print(f"  Training finished in {start_time - time.time():4f}s | Total Loss: {running_loss/len(train_loader):.4f}") 
+        print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {running_loss/len(train_loader):.4f}") 
 
         # validation
         print("  Beginning validation")
@@ -529,7 +502,7 @@ def main(
                 with torch.no_grad():
                     output_prev = model(inputs_prev)
 
-                total_loss, t_loss, r_loss = criterion(
+                total_loss, t_loss, r_loss, p_loss = criterion(
                     output_t=output_t,
                     input_t=input_frame_t,
                     output_prev=output_prev,
@@ -540,9 +513,9 @@ def main(
             validation_loss += total_loss.item()
         
             if batch_idx % 20 == 0:
-                print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} | Rec: {r_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
-        print(f"  Training finished in {start_time - time.time():4f}s | Total Loss: {validation_loss/len(valid_loader):.4f}") 
+        print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {validation_loss/len(valid_loader):.4f}") 
 
 
         avg_loss = running_loss / len(train_loader)
