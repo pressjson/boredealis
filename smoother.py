@@ -480,7 +480,7 @@ def main(
             running_loss += total_loss.item()
 
             if batch_idx % 20 == 0:
-                print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
         print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {running_loss/len(train_loader):.4f}") 
 
