@@ -292,9 +292,12 @@ class DeflickerLoss(nn.Module):
         # 4. Perceptual Loss (Warped)
         # Normalize inputs: (x - mean) / std
         out_norm = (output_t.to(vgg_device) - self.mean) / self.std
+        in_norm = (input_t.to(vgg_device) - self.mean) / self.std
         warped_norm = (warped_prev.to(vgg_device) - self.mean) / self.std
         # Extract features
         out_feat = self.vgg(out_norm)
+        in_feat = self.vgg(in_norm)
+        rec_perc_loss = self.l1_loss(out_feat, in_feat)
         with torch.no_grad():
             warped_feat = self.vgg(warped_norm)
         
@@ -306,14 +309,17 @@ class DeflickerLoss(nn.Module):
             mask_feat = F.interpolate(mask_vgg, size=out_feat.shape[-2:], mode='nearest')
 
             perc_diff = torch.abs(out_feat - warped_feat) * mask_feat
-            perc_loss = torch.mean(perc_diff)
+            temp_perc_loss = torch.mean(perc_diff)
         else:
             temp_loss = self.l1_loss(output_t, warped_prev)
-            perc_loss = self.l1_loss(out_feat, warped_feat)
+            temp_perc_loss = self.l1_loss(out_feat, warped_feat)
             
-        total_loss = (self.LAMBDAS.l1 * temp_loss) + (self.LAMBDAS.rec * rec_loss) + (self.LAMBDAS.perc * perc_loss.to(output_t.device))
+        total_loss = (self.LAMBDAS.l1 * temp_loss) + \
+            (self.LAMBDAS.rec * rec_loss) + \
+            (self.LAMBDAS.temp_perc * temp_perc_loss.to(output_t.device)) + \
+            (self.LAMBDAS.rec_perc * rec_perc_loss.to(output_t.device))
         
-        return total_loss, temp_loss, rec_loss, perc_loss
+        return LOSSES(total_loss, temp_loss, rec_loss, temp_perc_loss, rec_perc_loss)
 
 
 def load_checkpoint(model, optimizer, checkpoint_path, device):
@@ -355,10 +361,19 @@ def generate_circle_mask(height=608, width=608, radius=250, vertical_offset=15, 
     return mask.view(1, 1, height, width)
 
 class LAMBDAS:
-    def __init__(self, l1, rec, perc):
+    def __init__(self, l1, rec, temp_perc, rec_perc):
         self.l1 = l1
         self.rec = rec 
-        self.perc = perc
+        self.temp_perc = temp_perc
+        self.rec_perc = rec_perc
+
+class LOSSES:
+    def __init__(self, total, temp, rec, temp_perc, rec_perc):
+        self.total_loss = total
+        self.temp_loss = temp
+        self.rec_loss = rec
+        self.temp_perc_loss = temp_perc
+        self.rec_perc_loss = rec_perc
     
 def main(
     data_dir=os.path.join("data", "images"),
@@ -483,7 +498,7 @@ def main(
                 output_t = model(inputs_curr)
                 output_prev = model(inputs_prev)
 
-                total_loss, t_loss, r_loss, p_loss = criterion(
+                losses = criterion(
                     output_t=output_t,
                     input_t=input_frame_t,
                     output_prev=output_prev,
@@ -491,13 +506,13 @@ def main(
                     occlusion_mask=roi_mask
                 )
 
-            total_loss.backward()
+            losses.total_loss.backward()
             optimizer.step()
 
-            running_loss += total_loss.item()
+            running_loss += losses.total_loss.item()
 
             if batch_idx % 20 == 0:
-                print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {losses.total_loss.item():.4f} | Temp: {losses.temp_loss.item():.4f} |  Rec: {losses.rec_loss.item():.4f} | Temp Perc: {losses.temp_perc_loss.item():.4f} |  Rec Perc: {losses.rec_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
         print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {running_loss/len(train_loader):.4f}") 
 
@@ -519,7 +534,7 @@ def main(
                     output_t = model(inputs_curr)
                     output_prev = model(inputs_prev)
 
-                    total_loss, t_loss, r_loss, p_loss = criterion(
+                losses = criterion(
                         output_t=output_t,
                         input_t=input_frame_t,
                         output_prev=output_prev,
@@ -527,10 +542,10 @@ def main(
                         occlusion_mask=roi_mask
                     )
 
-                validation_loss += total_loss.item()
+                validation_loss += losses.total_loss.item()
 
                 if batch_idx % 20 == 0:
-                    print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {total_loss.item():.4f} | Temp: {t_loss.item():.4f} |  Rec: {r_loss.item():.4f} | Perc: {p_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                    print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {losses.total_loss.item():.4f} | Temp: {losses.temp_loss.item():.4f} |  Rec: {losses.rec_loss.item():.4f} | Temp Perc: {losses.temp_perc_loss.item():.4f} |  Rec Perc: {losses.rec_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
         print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {validation_loss/len(valid_loader):.4f}") 
 
@@ -559,6 +574,6 @@ def main(
 if __name__ == "__main__":
     main(
         data_dir=os.path.join('media', 'filtered_training_videos'),
-        lambdas=LAMBDAS(l1=1.0, rec=0.2, perc=1.0),
+        lambdas=LAMBDAS(l1=1.0, rec=1, temp_perc=0.1, rec_perc=1.0),
         debug=True
     )
