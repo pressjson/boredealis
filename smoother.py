@@ -164,8 +164,8 @@ class DeflickerCNN(nn.Module):
         self.tail = nn.Conv2d(hidden_channels, 3, kernel_size=3, padding=1)
 
         # force init weights to zero for reconstruction loss during training
-        nn.init.constant_(self.tail.weight, 0)
-        nn.init.constant_(self.tail.bias, 0)
+        nn.init.kaiming_normal_(self.tail.weight, nonlinearity='relu')
+        nn.init.zeros_(self.tail.bias)
         
     def forward(self, x):
         features = self.head(x)
@@ -466,8 +466,7 @@ def main(
             flow = raft_model(input_frame_curr, input_frame_prev)
             with torch.autocast(device_type='cuda'):
                 output_t = model(inputs_curr)
-                with torch.no_grad():
-                    output_prev = model(inputs_prev)
+                output_prev = model(inputs_prev)
 
                 total_loss, t_loss, r_loss, p_loss = criterion(
                     output_t=output_t,
