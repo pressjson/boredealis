@@ -255,7 +255,7 @@ class DeflickerLoss(nn.Module):
         self.LAMBDAS = LAMBDA
         self.l1_loss = nn.L1Loss()
         vgg = vgg19(weights=VGG19_Weights).features
-        self.vgg = vgg[:29].to(device).eval()
+        self.vgg = vgg[:12].to(device).eval()
 
         for param in self.vgg.parameters():
             param.requires_grad = False
@@ -295,7 +295,8 @@ class DeflickerLoss(nn.Module):
         warped_norm = (warped_prev.to(vgg_device) - self.mean) / self.std
         # Extract features
         out_feat = self.vgg(out_norm)
-        warped_feat = self.vgg(warped_norm)
+        with torch.no_grad():
+            warped_feat = self.vgg(warped_norm)
         
         if occlusion_mask is not None:
             temp_diff = torch.abs(output_t - warped_prev) * occlusion_mask
@@ -361,9 +362,9 @@ class LAMBDAS:
     
 def main(
     data_dir=os.path.join("data", "images"),
-    input_frames=5,
-    num_res_blocks=24,
-    hidden_channels=256,
+    input_frames=3,
+    num_res_blocks=12,
+    hidden_channels=128,
     device = "cuda" if torch.cuda.is_available() else "cpu",
     lambdas=None,
     previous_model_path=None,
@@ -380,9 +381,16 @@ def main(
     
 
     print("Initializing model")
-    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels, save_memory=True,)
+    save_memory = True
+    model = DeflickerCNN(input_frames=input_frames, num_res_blocks=num_res_blocks, hidden_channels=hidden_channels, save_memory=save_memory)
     model.to(device)
+    print("Model initialized with:")
+    print(f"  Input frames = {input_frames}")
+    print(f"  Num res blocks = {num_res_blocks}")
+    print(f"  Hidden channels = {hidden_channels}")
+    print(f"  Save memory = {save_memory}")
 
+    print("Initializing loss and optimizer")
     criterion = DeflickerLoss(
         LAMBDA=lambdas, device = settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device
     ).to(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
@@ -405,13 +413,13 @@ def main(
         print(f"Loading previous model from {previous_model_path}")
         start_epoch = load_checkpoint(model, optimizer, previous_model_path, device)
 
-    if settings.USE_DEVICE_IDS:
-        print("Wrapping model with nn.DataParallel")
-        model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
 
+    print(f"Initializing RAFT on {device}")
     raft_model = RAFT(device)
     raft_model.to(device)
     if settings.USE_DEVICE_IDS:
+        print("Wrapping models with nn.DataParallel")
+        model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
         raft_model = nn.DataParallel(raft_model, device_ids=settings.DEVICE_IDS)
 
     print("Initializing datasets")
@@ -446,6 +454,7 @@ def main(
     prev_start = (mid_idx - 1) * 3
     prev_end = prev_start + 3
 
+    print("Let's go!")
     for epoch in range(start_epoch, settings.NUM_EPOCHS):
         start_time = time.time()
         print(f"Epoch {epoch+1} / {settings.NUM_EPOCHS}")
@@ -550,6 +559,6 @@ def main(
 if __name__ == "__main__":
     main(
         data_dir=os.path.join('media', 'filtered_training_videos'),
-        lambdas=LAMBDAS(l1=0.1, rec=0.2, perc=1.0),
+        lambdas=LAMBDAS(l1=1.0, rec=0.2, perc=1.0),
         debug=True
     )
