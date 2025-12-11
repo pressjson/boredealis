@@ -273,7 +273,7 @@ class DeflickerLoss(nn.Module):
             output_t: Network output for current frame t
             input_t: Original input frame t (flickering source)
             output_prev: Network output for previous frame t-1
-            flow_prev_to_curr: Optical flow from t-1 to t
+            flow: Optical flow from t-1 to t
             occlusion_mask: (Optional) Weight mask where 0 indicates occlusion/new content
                             and 1 indicates valid tracking.
         """
@@ -405,7 +405,8 @@ def main(
         print("Wrapping model with nn.DataParallel")
         model = nn.DataParallel(model, device_ids=settings.DEVICE_IDS)
 
-    raft_model = RAFT(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
+    raft_model = RAFT(device)
+    raft_model.to(device)
     if settings.USE_DEVICE_IDS:
         raft_model = nn.DataParallel(raft_model, device_ids=settings.DEVICE_IDS)
 
@@ -431,6 +432,16 @@ def main(
     print("Generating mask")
     roi_mask = generate_circle_mask(height=train_dataset.height, width=train_dataset.width, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
 
+    mid_idx = input_frames // 2
+
+    # Calculate channel start/end for Current Frame (t)
+    curr_start = mid_idx * 3
+    curr_end = curr_start + 3
+
+    # Calculate channel start/end for Previous Frame (t-1)
+    prev_start = (mid_idx - 1) * 3
+    prev_end = prev_start + 3
+
     for epoch in range(start_epoch, settings.NUM_EPOCHS):
         start_time = time.time()
         print(f"Epoch {epoch+1} / {settings.NUM_EPOCHS}")
@@ -449,10 +460,10 @@ def main(
 
             optimizer.zero_grad()
 
-            input_frame_t = inputs_curr[:, 6:9, :, :]
+            input_frame_t = inputs_curr[:, curr_start:curr_end, :, :]
 
-            input_frame_prev = inputs_curr[:, 3:6, :, :] 
-            input_frame_curr = inputs_curr[:, 6:9, :, :]
+            input_frame_prev = inputs_curr[:, prev_start:prev_end, :, :] 
+            input_frame_curr = inputs_curr[:, curr_start:curr_end, :, :]
 
             flow = raft_model(input_frame_prev, input_frame_curr)
             with torch.autocast(device_type='cuda'):
@@ -487,9 +498,9 @@ def main(
                 inputs_curr = inputs_curr.to(device)
                 inputs_prev = inputs_prev.to(device)
 
-                input_frame_t = inputs_curr[:, 6:9, :, :]
-                input_frame_prev = inputs_curr[:, 3:6, :, :] 
-                input_frame_curr = inputs_curr[:, 6:9, :, :]
+                input_frame_t = inputs_curr[:, curr_start:curr_end, :, :]
+                input_frame_prev = inputs_curr[:, prev_start:prev_end, :, :] 
+                input_frame_curr = inputs_curr[:, curr_start:curr_end, :, :]
 
                 flow = raft_model(input_frame_prev, input_frame_curr)
                 with torch.autocast(device_type='cuda'):
