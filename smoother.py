@@ -298,10 +298,8 @@ class DeflickerLoss(nn.Module):
         perc_loss = self.l1_loss(out_feat, in_feat)
          
         # 3. Temporal Loss (Warping Loss)
-        # Hopefully to eliminate device shenanigains 
         if occlusion_mask is not None and occlusion_mask.device != output_t.device:
             occlusion_mask = occlusion_mask.to(output_t.device)
-        # warp_frame will now work because we fixed it to use input.device
         warped_prev = warp_frame(output_prev, flow)
         
         if occlusion_mask is not None:
@@ -310,7 +308,7 @@ class DeflickerLoss(nn.Module):
         else:
             temp_loss = self.l1_loss(output_t, warped_prev)
             
-        total_loss = (self.lambda_l1 * temp_loss) + (self.lambda_rec * rec_loss) + self.lambda_perc * perc_loss.to(output_t.device)
+        total_loss = (self.lambda_l1 * temp_loss) + (self.lambda_rec * rec_loss) + (self.lambda_perc * perc_loss.to(output_t.device))
         
         return total_loss, temp_loss, rec_loss, perc_loss
 
@@ -465,7 +463,7 @@ def main(
             input_frame_prev = inputs_curr[:, prev_start:prev_end, :, :] 
             input_frame_curr = inputs_curr[:, curr_start:curr_end, :, :]
 
-            flow = raft_model(input_frame_prev, input_frame_curr)
+            flow = raft_model(input_frame_curr, input_frame_prev)
             with torch.autocast(device_type='cuda'):
                 output_t = model(inputs_curr)
                 with torch.no_grad():
@@ -502,7 +500,7 @@ def main(
                 input_frame_prev = inputs_curr[:, prev_start:prev_end, :, :] 
                 input_frame_curr = inputs_curr[:, curr_start:curr_end, :, :]
 
-                flow = raft_model(input_frame_prev, input_frame_curr)
+                flow = raft_model(input_frame_curr, input_frame_prev)
                 with torch.autocast(device_type='cuda'):
                     output_t = model(inputs_curr)
                     output_prev = model(inputs_prev)
