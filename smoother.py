@@ -250,11 +250,9 @@ class DeflickerLoss(nn.Module):
     """
     Combined loss: Temporal Consistency + Reconstruction
     """
-    def __init__(self, lambda_l1=1.0, lambda_rec=1.0, lambda_perc=1.0, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else "cuda"):
+    def __init__(self, LAMBDA, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else "cuda"):
         super(DeflickerLoss, self).__init__()
-        self.lambda_rec = lambda_rec
-        self.lambda_perc = lambda_perc
-        self.lambda_l1 = lambda_l1
+        self.LAMBDAS = LAMBDA
         self.l1_loss = nn.L1Loss()
         vgg = vgg19(weights=VGG19_Weights).features
         self.vgg = vgg[:29].to(device).eval()
@@ -308,7 +306,7 @@ class DeflickerLoss(nn.Module):
         else:
             temp_loss = self.l1_loss(output_t, warped_prev)
             
-        total_loss = (self.lambda_l1 * temp_loss) + (self.lambda_rec * rec_loss) + (self.lambda_perc * perc_loss.to(output_t.device))
+        total_loss = (self.LAMBDAS.l1 * temp_loss) + (self.LAMBDAS.rec * rec_loss) + (self.LAMBDAS.perc * perc_loss.to(output_t.device))
         
         return total_loss, temp_loss, rec_loss, perc_loss
 
@@ -351,7 +349,11 @@ def generate_circle_mask(height=608, width=608, radius=250, vertical_offset=15, 
     
     return mask.view(1, 1, height, width)
 
-
+class LAMBDAS:
+    def __init__(self, l1, rec, perc):
+        self.l1 = l1
+        self.rec = rec 
+        self.perc = perc
     
 def main(
     data_dir=os.path.join("data", "images"),
@@ -359,7 +361,7 @@ def main(
     num_res_blocks=24,
     hidden_channels=256,
     device = "cuda" if torch.cuda.is_available() else "cpu",
-    LAMBDA=0.5,
+    lambdas=None,
     previous_model_path=None,
     debug=False
 ):
@@ -378,7 +380,7 @@ def main(
     model.to(device)
 
     criterion = DeflickerLoss(
-        lambda_l1=0.0, lambda_perc=1.0, lambda_rec=LAMBDA, device = settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device
+        LAMBDA=lambdas, device = settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device
     ).to(settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else device)
     optimizer = torch.optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
 
@@ -544,5 +546,6 @@ def main(
 if __name__ == "__main__":
     main(
         data_dir=os.path.join('media', 'filtered_training_videos'),
+        lambdas=LAMBDAS(l1=0.3, rec=0.2, perc=1.0),
         debug=True
     )
