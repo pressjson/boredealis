@@ -545,7 +545,7 @@ def main(
                 validation_loss += losses.total_loss.item()
 
                 if batch_idx % 20 == 0:
-                    print(f"    Batch {batch_idx}/{len(train_loader)} | Total Loss: {losses.total_loss.item():.4f} | Temp: {losses.temp_loss.item():.4f} |  Rec: {losses.rec_loss.item():.4f} | Temp Perc: {losses.temp_perc_loss.item():.4f} |  Rec Perc: {losses.rec_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
+                    print(f"    Batch {batch_idx}/{len(valid_loader)} | Total Loss: {losses.total_loss.item():.4f} | Temp: {losses.temp_loss.item():.4f} |  Rec: {losses.rec_loss.item():.4f} | Temp Perc: {losses.temp_perc_loss.item():.4f} |  Rec Perc: {losses.rec_loss.item():.4f} | Time: {time.time() - start_time:.2f}s")
 
         print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {validation_loss/len(valid_loader):.4f}") 
 
@@ -574,6 +574,6 @@ def main(
 if __name__ == "__main__":
     main(
         data_dir=os.path.join('media', 'filtered_training_videos'),
-        lambdas=LAMBDAS(l1=1.0, rec=1, temp_perc=0.1, rec_perc=1.0),
+        lambdas=LAMBDAS(l1=1.0, rec=1.0, temp_perc=0.1, rec_perc=1.0),
         debug=True
     )
