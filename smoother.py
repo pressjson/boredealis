@@ -164,8 +164,8 @@ class DeflickerCNN(nn.Module):
         self.tail = nn.Conv2d(hidden_channels, 3, kernel_size=3, padding=1)
 
         # force init weights to zero for reconstruction loss during training
-        nn.init.kaiming_normal_(self.tail.weight, nonlinearity='relu')
-        nn.init.zeros_(self.tail.bias)
+        nn.init.constant_(self.tail.weight, 0)
+        nn.init.constant_(self.tail.bias, 0)
         
     def forward(self, x):
         features = self.head(x)
@@ -283,28 +283,32 @@ class DeflickerLoss(nn.Module):
         # 2: VGG Loss
         vgg_device = self.mean.device
             
-        # Normalize inputs: (x - mean) / std
-        # We must move the inputs to vgg_device to perform the forward pass
-        out_norm = (output_t.to(vgg_device) - self.mean) / self.std
-        in_norm = (input_t.to(vgg_device) - self.mean) / self.std
 
-        # Extract features
-        out_feat = self.vgg(out_norm)
-        in_feat = self.vgg(in_norm)
-
-        # Calculate feature loss
-        perc_loss = self.l1_loss(out_feat, in_feat)
-         
-        # 3. Temporal Loss (Warping Loss)
+        # 3. Warp
         if occlusion_mask is not None and occlusion_mask.device != output_t.device:
             occlusion_mask = occlusion_mask.to(output_t.device)
         warped_prev = warp_frame(output_prev, flow)
+
+        # 4. Perceptual Loss (Warped)
+        # Normalize inputs: (x - mean) / std
+        out_norm = (output_t.to(vgg_device) - self.mean) / self.std
+        warped_norm = (warped_prev.to(vgg_device) - self.mean) / self.std
+        # Extract features
+        out_feat = self.vgg(out_norm)
+        warped_feat = self.vgg(warped_norm)
         
         if occlusion_mask is not None:
             temp_diff = torch.abs(output_t - warped_prev) * occlusion_mask
             temp_loss = torch.mean(temp_diff)
+
+            mask_vgg = occlusion_mask.to(vgg_device)
+            mask_feat = F.interpolate(mask_vgg, size=out_feat.shape[-2:], mode='nearest')
+
+            perc_diff = torch.abs(out_feat - warped_feat) * mask_feat
+            perc_loss = torch.mean(perc_diff)
         else:
             temp_loss = self.l1_loss(output_t, warped_prev)
+            perc_loss = self.l1_loss(out_feat, warped_feat)
             
         total_loss = (self.LAMBDAS.l1 * temp_loss) + (self.LAMBDAS.rec * rec_loss) + (self.LAMBDAS.perc * perc_loss.to(output_t.device))
         
@@ -546,6 +550,6 @@ def main(
 if __name__ == "__main__":
     main(
         data_dir=os.path.join('media', 'filtered_training_videos'),
-        lambdas=LAMBDAS(l1=0.3, rec=0.2, perc=1.0),
+        lambdas=LAMBDAS(l1=0.1, rec=0.2, perc=1.0),
         debug=True
     )
