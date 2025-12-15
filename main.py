@@ -17,14 +17,14 @@ BOUNDS_RECALCULATION = 100
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
 VALID_MODEL_SIZES = ["96", "128"]
 
-arg_input = None
-arg_output = None
-arg_filters = None
+arg_input = ""
+arg_output = ""
+arg_filters = ""
 debug = False
-arg_custom_model_path = None
+arg_custom_model_path = ""
 remove_tmp = True
 use_disk = False
-device = None
+device = ""
 
 for arg in sys.argv[1:]:
     # help
@@ -440,6 +440,7 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     console.print(
         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
     )
+    return 1
 
 main(device=device)
 # my_rmdir("test_videos")
