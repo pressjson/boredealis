@@ -72,16 +72,19 @@ else:
 
 def init_queue(folder):
     q = Queue()
-    for video in os.listdir(folder):
-        q.put_nowait(video)
+    for root, _, files in os.walk(folder):
+        for f in files:
+            path = os.path.relpath(os.path.join(root, f), folder)
+            q.put_nowait(path)
     return q
 
 async def worker(device, queue):
     while True:
+        item = await queue.get()
         try:
-            item = await queue.get()
             input_path = os.path.join(INPUT_DIR, item)
             output_path = os.path.splitext(os.path.join(OUTPUT_DIR, item))[0] + EXT
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
             args = ARGS(input_path, output_path)
             if FILTER:
                 await filter_video(args, device)
