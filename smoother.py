@@ -250,11 +250,13 @@ class DeflickerLoss(nn.Module):
     """
     Combined loss: Temporal Consistency + Reconstruction
     """
-    def __init__(self, LAMBDA, device=settings.VGG_DEVICE_ID if settings.USE_VGG_DEVICE else "cuda"):
+    def __init__(self, LAMBDA, device=""):
         super(DeflickerLoss, self).__init__()
         self.LAMBDAS = LAMBDA
         self.l1_loss = nn.L1Loss()
         vgg = vgg19(weights=VGG19_Weights).features
+        if not device:
+            device="cuda" if torch.cuda.is_available() else "cpu"
         self.vgg = vgg[:12].to(device).eval()
 
         for param in self.vgg.parameters():
@@ -316,7 +318,7 @@ class DeflickerLoss(nn.Module):
             
         total_loss = (self.LAMBDAS.l1 * temp_loss) + \
             (self.LAMBDAS.rec * rec_loss) + \
-            (self.LAMBDAS.temp_perc * temp_perc_loss.to(output_t.device)) + \
+            (self.LAMBDAS.l1_perc * temp_perc_loss.to(output_t.device)) + \
             (self.LAMBDAS.rec_perc * rec_perc_loss.to(output_t.device))
         
         return LOSSES(total_loss, temp_loss, rec_loss, temp_perc_loss, rec_perc_loss)
@@ -361,10 +363,10 @@ def generate_circle_mask(height=608, width=608, radius=250, vertical_offset=15, 
     return mask.view(1, 1, height, width)
 
 class LAMBDAS:
-    def __init__(self, l1, rec, temp_perc, rec_perc):
+    def __init__(self, l1, rec, l1_perc, rec_perc):
         self.l1 = l1
         self.rec = rec 
-        self.temp_perc = temp_perc
+        self.l1_perc = l1_perc
         self.rec_perc = rec_perc
 
 class LOSSES:
@@ -574,6 +576,6 @@ def main(
 if __name__ == "__main__":
     main(
         data_dir=os.path.join('media', 'filtered_training_videos'),
-        lambdas=LAMBDAS(l1=1.0, rec=1.0, temp_perc=0.1, rec_perc=1.0),
+        lambdas=LAMBDAS(l1=5.0, rec=1.0, l1_perc=0.1, rec_perc=0.5),
         debug=True
     )
