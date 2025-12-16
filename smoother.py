@@ -285,7 +285,6 @@ class DeflickerLoss(nn.Module):
         # 2: VGG Loss
         vgg_device = self.mean.device
             
-
         # 3. Warp
         if occlusion_mask is not None and occlusion_mask.device != output_t.device:
             occlusion_mask = occlusion_mask.to(output_t.device)

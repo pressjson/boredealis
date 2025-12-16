@@ -192,6 +192,9 @@ def main(
 
     roi_mask = generate_circle_mask(device=device)
     inverse_mask = 1 - roi_mask
+    middle_idx = input_frames // 2
+    start_channel = middle_idx * 3
+    end_channel = start_channel + 3
 
     with torch.no_grad():
         for i in track(range(total_frames), description="[green]Processing video . . .[/green]"):
@@ -206,7 +209,9 @@ def main(
             output = model(input_tensor)
 
             # 3. Post-process to include original metadata
-            output_combined = output * roi_mask + input_tensor * inverse_mask
+            input_middle_frame = input_tensor[:, start_channel:end_channel, :, :]
+
+            output_combined = output * roi_mask + input_middle_frame * inverse_mask
 
             # 3. Post-process & Write
             output_np = output_combined.squeeze(0).permute(1, 2, 0).cpu().numpy()
