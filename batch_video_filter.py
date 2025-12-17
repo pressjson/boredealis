@@ -20,7 +20,7 @@ OUTPUT_DIR = sys.argv[2]
 MODEL_PATH = sys.argv[3]
 VIDS_PER_DEVICE = 1
 EXT = ".mp4"
-FILTER=True # True -> filter w/ U-Net; else smooth
+FILTER=False # True -> filter w/ U-Net; else smooth
 
 print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(sys.argv) - 4)}")
 
@@ -44,17 +44,19 @@ class ARGS:
         self.output_path = output_path
         self.MODEL_PATH = sys.argv[3]
         self.OTHERS = sys.argv[4:] if len(sys.argv) >= 5 else []
-        self.device = ""
-        if self.OTHERS:
-            device_flag = [x for x in self.OTHERS if "--device" in x]
-            if device_flag:
-                self.device=device_flag[0][9:]
+        # self.device = ""
+        # if self.OTHERS:
+        #     device_flag = [x for x in self.OTHERS if "--device" in x]
+        #     if device_flag:
+        #         self.device=device_flag[0][9:]
 
-    # def return_command(self):
-    #     cmd = ["python3", "main.py", f"-i={self.input_path}", f"-o={self.output_path}", f"-c={self.MODEL_PATH}"]
-    #     if len(self.OTHERS) > 0:
-    #         cmd = cmd + [arg for arg in self.OTHERS]
-    #     return cmd
+    def return_command(self):
+        cmd = ["python3", "main.py", f"-i={self.input_path}", f"-o={self.output_path}", f"-c={self.MODEL_PATH}"]
+        if len(self.OTHERS) > 0:
+            cmd = cmd + [arg for arg in self.OTHERS]
+        # if self.device:
+        #     cmd = cmd + [self.device]
+        return cmd
 
 AVAILABLE_DEVICES = [f"cuda:{x}" for x in settings.DEVICE_IDS] * VIDS_PER_DEVICE if settings.DEVICE_IDS else ["cpu"]
 print(f"running on {AVAILABLE_DEVICES}")
@@ -94,33 +96,36 @@ async def worker(device, queue):
             queue.task_done()
 
 async def filter_video(args: ARGS, device):
-    # cmd = args.return_command() + [f"--device={device}"]
-    # print(f"running {cmd}")
-    # proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    # stdout, stderr = await proc.communicate()
+    cmd = args.return_command() + [f"--device={device}"]
+    print(f"running {cmd} on device {device}")
+    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await proc.communicate()
     # await asyncio.sleep(1)
 
-    print(f"running filter on device {device}")
-    return await asyncio.to_thread(
-        filter_video_in_a_pipeline,
-        args.MODEL_PATH,
-        args.input_path,
-        args.output_path,
-        device
-    )
+    # cpu-bound, no gpu parallelism
+    # print(f"running filter on device {device}")
+    # return await asyncio.to_thread(
+    #     filter_video_in_a_pipeline,
+    #     args.MODEL_PATH,
+    #     args.input_path,
+    #     args.output_path,
+    #     device
+    # )
 
 async def smooth_video(args: ARGS, device):
-    print(f"running smoother on device {device}")
-    return await asyncio.to_thread(
-        smoother_test.main,
-        model_path=args.MODEL_PATH,
-        input_video_path=args.input_path,
-        output_path=args.output_path,
-        device=device,
-        verbose=True if device == AVAILABLE_DEVICES[0] else False,
-        debug=False,
-    )
-
+    cmd = [
+        "python3", "-c", "import smoother_test;",
+        "smoother_test.main",
+        f"model_path={args.MODEL_PATH}",
+        f"input_video_path={args.input_path}",
+        f"output_path={args.output_path}",
+        f"device={device}",
+        f"verbose={True if device == AVAILABLE_DEVICES[0] else False}",
+    ]
+    print(f"running {cmd} on device {device}")
+    # proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    # stdout, stderr = await proc.communicate()
+    await asyncio.sleep(5)
 
 
 async def main():
