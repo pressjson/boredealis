@@ -130,7 +130,6 @@ async def smooth_video(args: ARGS, device):
     print(f"running {cmd} on device {device}")
     proc = await asyncio.create_subprocess_exec(
         *cmd,
-        env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
