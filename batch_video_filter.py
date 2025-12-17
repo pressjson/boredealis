@@ -51,7 +51,12 @@ class ARGS:
         #         self.device=device_flag[0][9:]
 
     def return_command(self):
-        cmd = ["python3", "main.py", f"-i={self.input_path}", f"-o={self.output_path}", f"-c={self.MODEL_PATH}"]
+        cmd = [
+            sys.executable, "main.py",
+            f"-i={self.input_path}",
+            f"-o={self.output_path}",
+            f"-c={self.MODEL_PATH}",
+        ]
         if len(self.OTHERS) > 0:
             cmd = cmd + [arg for arg in self.OTHERS]
         # if self.device:
@@ -112,21 +117,24 @@ async def filter_video(args: ARGS, device):
     #     device
     # )
 
+
 async def smooth_video(args: ARGS, device):
     cmd = [
-        "python3", "-c", "import smoother_test;",
-        "smoother_test.main",
-        f"model_path={args.MODEL_PATH}",
-        f"input_video_path={args.input_path}",
-        f"output_path={args.output_path}",
-        f"device={device}",
-        f"verbose={True if device == AVAILABLE_DEVICES[0] else False}",
+        sys.executable,
+        "run_smoother.py",
+        "--model", args.MODEL_PATH,
+        "--input", args.input_path,
+        "--output", args.output_path,
+        "--device", device,
     ]
     print(f"running {cmd} on device {device}")
-    # proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    # stdout, stderr = await proc.communicate()
-    await asyncio.sleep(5)
-
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        env=env,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
 
 async def main():
     print("initializing . . .")
