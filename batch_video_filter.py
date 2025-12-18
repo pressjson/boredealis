@@ -4,25 +4,33 @@
 
 I could do this in bash, but multithreading . . ."""
 
-import sys
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--model", "-m", help="path to model", default="")
+parser.add_argument("--input", "-i", help="input path (include extension)", default="")
+parser.add_argument("--output", "-o", help="output path (include extension)", default="")
+parser.add_argument("--vids-per-device", "-V", default=1)
+parser.add_argument("--ext", default=".mp4")
+parser.add_argument("--filter", default=True, action=argparse.BooleanOptionalAction,
+                    help="--filter for cloud removal, --no-filter for smoothing; default is filter")
+parser.add_argument("--debug", action='store_true', default=False)
+[args, OTHERS] = parser.parse_known_args()
 
-def print_help():
-    print("usage: python3 batch_video_filter.py <input_dir> <output_dir> <model_path> <other_flags>")
-    print("<other_flags> should be compatible with main.py")
-    print("<input_dir> and <output_dir> should just be the directories")
-
-if len(sys.argv) < 4 or "-h" in sys.argv or "--help" in sys.argv:
-    print_help()
-    sys.exit(-1)
-
-INPUT_DIR = sys.argv[1]
-OUTPUT_DIR = sys.argv[2]
-MODEL_PATH = sys.argv[3]
+INPUT_DIR = args.input
+OUTPUT_DIR = args.output
+MODEL_PATH = args.model
 VIDS_PER_DEVICE = 1
-EXT = ".mp4"
-FILTER=False # True -> filter w/ U-Net; else smooth
+FILTER = args.filter
+EXT = args.ext
+print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(OTHERS))}")
 
-print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(sys.argv) - 4)}")
+if OTHERS:
+    print(f"    others: {OTHERS}")
+
+import sys
+if args.debug:
+    print("Debug complete!")
+    sys.exit(0)
 
 import os
 if not os.path.exists(INPUT_DIR) or INPUT_DIR == "":
@@ -30,7 +38,7 @@ if not os.path.exists(INPUT_DIR) or INPUT_DIR == "":
     sys.exit(-1)
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-        
+
 
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
@@ -42,8 +50,8 @@ class ARGS:
     def __init__(self, input_path, output_path):
         self.input_path = input_path
         self.output_path = output_path
-        self.MODEL_PATH = sys.argv[3]
-        self.OTHERS = sys.argv[4:] if len(sys.argv) >= 5 else []
+        self.MODEL_PATH = MODEL_PATH,
+        self.OTHERS = OTHERS
         # self.device = ""
         # if self.OTHERS:
         #     device_flag = [x for x in self.OTHERS if "--device" in x]
@@ -53,9 +61,9 @@ class ARGS:
     def return_command(self):
         cmd = [
             sys.executable, "main.py",
-            f"-i={self.input_path}",
-            f"-o={self.output_path}",
-            f"-c={self.MODEL_PATH}",
+            "--input", self.input_path,
+            "--output", self.output_path,
+            "--model", self.MODEL_PATH,
         ]
         if len(self.OTHERS) > 0:
             cmd = cmd + [arg for arg in self.OTHERS]
@@ -71,11 +79,6 @@ import time
 import asyncio
 from asyncio import Queue
 
-
-if FILTER:
-    from main import filter_video_in_a_pipeline
-else:
-    import smoother_test
 
 def init_queue(folder):
     q = Queue()

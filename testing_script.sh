@@ -4,6 +4,8 @@
 
 trap "Exiting . . ." SIGINT
 
+# @TODO: most of this needs to use the new flag system.
+
 # test a model and a video over multiple iterations
 
 # test_model="$HOME/Documents/Boredealis/vgg_128_models/checkpoint_best.pth"

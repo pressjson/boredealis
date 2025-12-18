@@ -118,27 +118,44 @@ So far, the following parameters appear to be best by visual inspection:
 
 The next step is to use proper metrics on the training data.
 
+** Smoother
+
+#+BEGIN_QUOTE
+It's great, but *the flicker hurts my head*. - Gerard Fasel, 2025
+#+END_QUOTE
+
+[[file:readme_images/filtered_04122019_085304_checkpoint_best.gif][Filtered video]]
+
+So how do we solve AI's problems? That's right, more AI!
+
+The simplest architecture to achieve this is a 3D CNN. After all, "keep it simple, stupid" has done wonders thus far. It has a head, body comprised of residual blocks, and a tail. It has a window where it takes in frames ~t-i,...,t,...,t+i~ and returns a smoothed ~t~.
+
+And you know the best part?
+
+/It works/. At least with a three frame window, 8 residual blocks and 96 hidden channels.
+
+[[file:readme_images/smooth_04122019_085304_checkpoint_best.gif][Smoothed video]]
+
+If you want to read my COSC 200 report, you can do so [[file:white_papers/COSC_210_Paper.pdf][here]].
+
+Thus is everything so far.
+
 * The White Paper
 
-Hey, we got accepted to ISVC with Randthree! You can check out the white paper somewhere, whenever Springer gets around to publishing it. In the meantime, you can read it [[file:ISVC_2025_Declouding_The_Aurora_Borealis.pdf][here]] if you are so inclined. If you even exist.
+Hey, we got accepted to ISVC with Randthree! You can check out the white paper somewhere, whenever Springer gets around to publishing it. In the meantime, you can read it [[file:white_papers/ISVC_2025_Declouding_The_Aurora_Borealis.pdf][here]] if you are so inclined. If you even exist.
+
+We're maybe working on writing /another/ white paper to send to /Nature/.
 
 * Installing
 
-I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, I do not know if any of this works on Windows. I am almost positive that my bash does not, because Windows uses ~\~ for directory navigation and Unix (Linux, macOS) uses the correct ~/~ for directory navigation.
+I develop on Linux, using Arch (and Omarchy btw). I do not have a copy of Windows. As such, I do not know if any of this works on Windows. I am almost positive that my bash does not, because Windows uses ~\~ for directory navigation and Unix (Linux, macOS) uses the correct ~/~ for directory navigation.
 
 @TODO: make this work on Windows.
 
 ** Prerequisites
 
 - Python3
-  - I personally develop on the edge with Python 3.13.3, but I am sure it works with older versions of Python 3.
-- A valid C compiler, like [[https://gcc.gnu.org/][GCC]]
-- [[https://ffmpeg.org/][FFmpeg]] (now optional)
-  - On macOS, FFmpeg is not natively installed. Install FFmpeg via [[https://brew.sh/][Homebrew]].
-  - On Windows, just use WSL. It's now available on GitHub if you are that kind of nerd. Otherwise, just [[https://learn.microsoft.com/en-us/windows/wsl/install][install WSL]] and be forever happy.
-    - If you want to use Windows, you will have to deal with Windows' weirdness in the terminal. As such, you will be building this project manually, and the shell script and my command syntax will not work.
-- [[https://www.gnu.org/software/wget/][Wget]]
-  - On macOS, Wget is not natively installed. Install Wget via [[https://brew.sh/][Homebrew]].
+  - I personally develop on the edge with Python, but I am sure it works with older versions of Python 3. I have tested this to as early as 3.10.x, and it works there.
 
 @TODO: migrate to curl, which is natively installed on macOS.
 
@@ -146,15 +163,15 @@ I develop on Linux, using Arch (btw). I do not have a copy of Windows. As such, 
 
 - ~git clone https://github.com/pressjson/boredealis~ wherever.
 - ~cd~ into the newly created directory.
-- Download the models from the releases page, and place them in a new directory in the project root called ~model_milestones~.
+- Download the models from the releases page. I'd put them in the project directory for convenience.
 
 Then, you have two options:
 
 *** Use the shell script
 
-~run.sh~ will bootstrap the virtual enviornment if it does not exist, enter into the virtual enviornment if it is not in one already, and then call ~main.py~ to start the project. I do not know if it works on Windows, but given that I call paths with the Unix style right now, it probably will not. If you are on Windows, I would recommend building the packages manually
+~run.sh~ will bootstrap the virtual enviornment if it does not exist, enter into the virtual enviornment if it is not in one already, and then call ~main.py~ to start the project. I do not know if it works on Windows, but given that I call paths with the Unix style right now, it probably will not. If you are on Windows, I would recommend building the packages manually.
 
-~run.sh~ will also download the models in the releases tab into the models folder.
+@TODO: does this actually work? I don't know. I need to clean up ~run.sh~. For now, just use manual installing. It's like five commands.
 
 This does not support clicking on ~run.sh~ and having a new terminal window popping up, as the way to pop up a new terminal window is not standard, and I do not want to go through the pain of making a bash script to check every terminal emulator. And no, I will not be making a GUI.
 
@@ -187,69 +204,30 @@ There is a similar command for Windows, but I do not develop on Windows (I use A
 Instead of sitting through the interactive TUI every time, you can skip it by passing in parameters:
 
 #+begin_src bash
-# If running through python3 (if your system has python, that works as well)
-python3 main.py <input_file_location> <output_file_name> <num_filters>
-# If running via the shell script
-./run.sh <input_file_location> <output_file_name> <num_filters>
-# This also supports help and version
-python3 main.py [help | --help | -h]
-./run.sh [version | --version | -v]
+python3 main.py --input <input_file> --output <output_location> --model <model_path>
 #+end_src
 
-@TODO: add extra flags, such as ~--input=[input]~ for the input, output, and filters; ~--no-clean-tmp~ or ~-n~; and whatever else is necessary.
-
-This also supports only passing in one or two parameters. However, they /must/ be in the order ~[input] [output] [filters]~, so ~[input] [filters]~ does not work.
+Use ~--help~ for a full list of available flags.
 
 *** Do I have to type in the file paths every single time?
 
 Not necessarily. Most terminal emulators support dragging and dropping files as a way to paste their paths. Up arrow is a great way to re-bring up your last used query/entry.
 
+Usually copying a file (~C-c~) and pasting it (~C-V~) into the terminal also works.
+
 ** Where can I get some models?
 
-There are models available to download under the releases tab. Download a model (~.pth~ file), put it in the project's directory.
+There are models available to download under the releases tab. Download a model (~.pth~ file) and use its path when prompted (or pass it in as a parameter with a flag).
 
-To use the models with the main script, place them inside a new directory called ~models~.
-
-To use a model with ~test.py~, either:
-
-- edit ~test.py~ to point towards the file;
-
-#+begin_src python
-# at the bottom of test.py
-if __name__ == "__main__":
-    test(
-        # assuming the file is from the models page
-        model_load_path=os.path.join("models", "64_checkpoint_best.pth")
-    ).show()
-#+end_src
-
-- or just pass the file in as an argumennt.
-
-#+begin_src python
->>> import test
->>> test.test(model_load_path = os.path.join("models", "64_checkpoint_best.pth"))
-<PIL.Image.Image image mode=RGB size=608x608 at 0xADDRESS>
->>> test.test(model_load_path = os.path.join("models", "64_checkpoint_best.pth"))
-# will show the image
-#+end_src
-
-*Beware that the 128 filter models and greater are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU (specifically its VRAM) to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
+*Beware that larger models are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU (specifically its VRAM) to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
 
 ** How do I install some images/videos for testing?
 
-A release containing two ~.avi~ videos and their corresponding folders of ~.png~ images is available in the releases tab. Download the file(s) and extract them into a directory, such as ~test~.
+A release containing two ~.avi~ videos and their corresponding folders of ~.png~ images is available in the releases tab.
 
 Because I am a chaotic mess, these images are uniformly named within a directory, but not between directories. Just . . . beware.
 
-If you choose to use these images, you will have to change the code to whatever you use.
-
-I am /not/ allowed to distribute the full dataset, as it is private and collected in-house. Even putting up two files from it feels like I am violating some privacy laws or something.
-
-** How do I use custom images/videos rather than the default ones with ~test.py~?
-
-If you are wanting to tinker with ~test.py~, you are smart enough to modify the code to point to custom images.
-
-For now, pass the image into ~test.py~ as a custom argument, i.e. ~test(image_path="path/to/image")~ inside a python interpreter, or edit the file to include your custom path. I'm sorry there is no good way to do this.
+I am /not/ allowed to distribute the full dataset, as it is private and collected in-house. Even putting up two files from it feels like I am violating some privacy laws or something. So don't ask.
 
 ** How do I make local settings? Why does a warning about no local settings keep appearing?
 
@@ -262,12 +240,6 @@ If you want to be super lazy and never change any settings and just want the noi
 #+begin_src shell
 ln -s settings.py local_settings.py
 #+end_src
-
-@FIXME: there is no default model. As such, ~test.py~ will not work. The models are downloadable in the releases tab.
-
-** ~ffmpeg_wrapper.py~ does not work. Why?
-
-~ffmpeg_wrapper.py~ is, well, a wrapper function for [[https://ffmpeg.org/][FFmpeg]]. As such, you need to install FFmpeg on the system and ensure it is a part of $PATH.
 
 ** It doesn't work!
 

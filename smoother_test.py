@@ -24,6 +24,16 @@ import torch
 from rich.progress import track
 from collections import deque
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--model", "-m", help="path to model", default="")
+parser.add_argument("--input", "-i", help="input path (include extension)", default="")
+parser.add_argument("--output", "-o", help="output path (include extension)", default="")
+parser.add_argument("--device", "-d", help="device to use", default="cpu")
+parser.add_argument("--loss", help="calculate loss instead", action="store_true")
+parser.add_argument("--debug", action='store_true', default=False)
+args = parser.parse_args()
+
 def video_loss(input_video_path="", LAMBDA=None, device=""):
     if not LAMBDA:
         # default values in smoother.py main call
@@ -102,6 +112,9 @@ def main(
         exit(-1)
     if not os.path.exists(input_video_path):
         print(f"Error: input video path does not exist: {input_video_path}")
+        exit(-1)
+    if not output_path:
+        print(f"Error: no output path provided")
         exit(-1)
     
     output_base_path = os.path.split(output_path)[0]
@@ -237,16 +250,24 @@ def main(
     out_writer.release()
     print(f"Done! Saved filtered video to: {output_path}")
 
-     
-if __name__ == "__main__":
-    # crude usage
-    if len(sys.argv) != 4:
-        print("usage: python3 smoother_test.py input_video_path output_video_path model_path")
-        exit(-1)
-    main(
-        input_video_path=sys.argv[1],
-        output_path=sys.argv[2],
-        model_path=sys.argv[3],
-    )
 
-    
+if __name__ == "__main__":
+    if not args.loss:
+        print(f"filtering {args.input} on device {args.device}")
+        if args.debug:
+            print("Debug complete!")
+            exit(0)
+        main(
+            input_video_path=args.input,
+            output_path=args.output,
+            model_path=args.model,
+            device=args.device,
+        )
+    else:
+        if args.debug:
+            print("Debug complete!")
+            exit(0)
+        video_loss(
+            input_video_path=args.input,
+            device=args.device,
+        )

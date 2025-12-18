@@ -2,6 +2,7 @@
 
 import sys
 from rich.console import Console
+import argparse
 
 console = Console()
 
@@ -17,85 +18,24 @@ BOUNDS_RECALCULATION = 100
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
 VALID_MODEL_SIZES = ["96", "128"]
 
-arg_input = ""
-arg_output = ""
-arg_filters = ""
-debug = False
-arg_custom_model_path = ""
-remove_tmp = True
-use_disk = False
-device = ""
 
-for arg in sys.argv[1:]:
-    # help
-    if arg.endswith("help") or arg == "-h":
-        f = open("help.txt", "r")
-        help_file = f.read()
-        print(help_file)
-        sys.exit(0)
-    # version
-    elif arg.endswith("version") or arg == "-v":
-        print("This doesn't have versions, lmao")
-        print("But this is a prerelease version")
-        sys.exit(0)
-    # debug mode
-    elif arg.endswith("debug") or arg == "-d":
-        debug = True
-    # remove tmp
-    elif arg.startswith("--remove-tmp"):
-        remove_tmp = True if arg.lower().endswith("true") else False
-        # print(remove_tmp)
-    elif arg == "-r" or arg == "-rt":
-        remove_tmp = False
-        # print(remove_tmp)
-    # argument flags
-    elif arg.startswith("--input="):
-        arg_input = arg[8:]
-        # print(argv_1)
-    elif arg.startswith("-i="):
-        arg_input = arg[3:]
+parser = argparse.ArgumentParser()
+parser.add_argument("--model", "-c", help="path to model", default="")
+parser.add_argument("--input", "-i", help="input path (include extension)", default="")
+parser.add_argument("--output", "-o", help="output path (include extension)", default="")
+parser.add_argument("--debug", "-d", help="enable debug")
+parser.add_argument("--verbose", "-V", help="enable verbose")
+parser.add_argument("--version", "-v", action='version', version='No versions yet, but this is prerelease')
+parser.add_argument("--iterations", "-I", help="run the model ITERATIONS times", default=1)
+parser.add_argument("--blend", help="the amount of alpha to use \"DDPM\" with", default=0.0)
+parser.add_argument("--device", help="use custom device DEVICE", default="cpu")
+args = parser.parse_args()
 
-    elif arg.startswith("--output="):
-        arg_output = arg[9:]
-        # print(argv_2)
-    elif arg.startswith("-o="):
-        arg_output = arg[3:]
-
-    elif arg.startswith("--filters="):
-        arg_filters = int(arg[10:])
-        # print(argv_3)
-    elif arg.startswith("-f="):
-        arg_filters = arg[3:]
-    elif arg.startswith("--custom-model-path="):
-        arg_custom_model_path = arg[20:]
-    elif arg.startswith("-c=") or arg.startswith("-m="):
-        arg_custom_model_path = arg[3:]
-    elif arg == "-D" or arg == "--disk":
-        use_disk=True
-    elif arg.startswith("-I="):
-        iterations = int(arg[3:])
-    elif arg.startswith("--iterations="):
-        iterations = int(arg[13:])
-    elif arg.startswith("--blend="):
-        BLEND_STRENGTH = float(arg[8:])
-
-    elif arg.startswith("--device="):
-        device = arg[9:]
-
-    # I am so sorry to the else-if gods, but I don't want to refactor this
-    # @TODO: refactor this
-    # catch all
-    else:
-        console.print(
-            f"Error: {arg} is not a valid flag. Please check --help for what flags are valid",
-            style="bold red",
-        )
-        sys.exit(1)
-
-if debug:
-    for arg in sys.argv[1:]:
-        console.print(f"Arg {arg}")
-
+arg_input = args.input
+arg_output = args.output
+arg_custom_model_path = args.model
+iterations = args.iterations
+BLEND_STRENGTH = args.blend
 
 if not iterations > 0:
     console.print(f"Error: iterations must be larger than 1, currently at {iterations}.")
@@ -108,22 +48,6 @@ if not (0.0 <= BLEND_STRENGTH and BLEND_STRENGTH <= 1.0):
     BLEND_STRENGTH = min(1.0, BLEND_STRENGTH)
     BLEND_STRENGTH = max(0.0, BLEND_STRENGTH)
     console.print(f"Blend strength is now {BLEND_STRENGTH}")
-
-# if len(sys.argv) >= 2:
-#     argv_1 = sys.argv[1]
-#     if argv_1.lower().endswith("help") or argv_1 == "-h":
-#         f = open("help.txt", "r")
-#         help_file = f.read()
-#         print(help_file)
-#         sys.exit(0)
-#     if argv_1.lower().endswith("version") or argv_1 == "-v":
-#         print("This doesn't have versions, lmao")
-#         print("But this is a prerelease version")
-#         sys.exit(0)
-# if len(sys.argv) >= 3:
-#     argv_2 = sys.argv[2]
-# if len(sys.argv) >= 4:
-#     argv_3 = sys.argv[3]
 
 from rich.progress import track
 import os
@@ -442,7 +366,8 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     )
     return 1
 
-main(device=device)
+if __name__ == "__main__":
+    main(device=args.device)
 # my_rmdir("test_videos")
 # if response_loop("Testing", ["a"]):
 #     print("success!")
