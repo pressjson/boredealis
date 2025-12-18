@@ -137,17 +137,23 @@ And you know the best part?
 /It works/. At least with a three frame window, 8 residual blocks and 96 hidden channels.
 
 #+CAPTION: A smoothed GIF
-[[file:readme_images/smooth_04122019_085304_checkpoint_best.gif][A smooth GIF, less flicker]]
+[[file:readme_images/smooth_04122019_085304_checkpoint_best.gif][A smooth GIF, less flicker.]]
 
-If you want to read my COSC 200 report, you can do so [[file:white_papers/COSC_210_Paper.pdf][here]].
+If you want to read my COSC 210 report (the class in which I developed this model), you can do so [[file:white_papers/COSC_210_Paper.pdf][here]].
 
-Thus is everything so far.
+** Everything Put Together
+
+I made a fancy diagram for my AGU25 presentation. I want to show it off.
+
+[[file:readme_images/the_whole_agu_diagram.svg][Fancy Diagram. Admire it.]]
+
+I spent so long (ten minutes) in my highly advanced vector-based graphics editor ([[excalidraw.io][Excalidraw]]) to make this beautiful graphic, so you better enjoy it.
 
 * The White Paper
 
 Hey, we got accepted to ISVC with Randthree! You can check out the white paper somewhere, whenever Springer gets around to publishing it. In the meantime, you can read it [[file:white_papers/ISVC_2025_Declouding_The_Aurora_Borealis.pdf][here]] if you are so inclined. If you even exist.
 
-We're maybe working on writing /another/ white paper to send to /Nature/.
+We're maybe working on writing /another/ white paper to send to /Nature/. More to follow later.
 
 * Installing
 
