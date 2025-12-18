@@ -124,9 +124,11 @@ The next step is to use proper metrics on the training data.
 It's great, but *the flicker hurts my head*. - Gerard Fasel, 2025
 #+END_QUOTE
 
-[[file:readme_images/filtered_04122019_085304_checkpoint_best.gif][Filtered video]]
+@TODO: find out why GitHub doesn't like showing these GIFs inline. Too big of a file size? They show up just fine in the raw viewer when clicked on.
+#+CAPTION: A filtered but flickery GIF
+[[file:readme_images/filtered_04122019_085304_checkpoint_best.gif][A filtered GIF, lots of flicker.]]
 
-So how do we solve AI's problems? That's right, more AI!
+So how do we solve AI's problems? That's right, more AI! Hasn't that worked out so well for Microsoft?
 
 The simplest architecture to achieve this is a 3D CNN. After all, "keep it simple, stupid" has done wonders thus far. It has a head, body comprised of residual blocks, and a tail. It has a window where it takes in frames ~t-i,...,t,...,t+i~ and returns a smoothed ~t~.
 
@@ -134,7 +136,8 @@ And you know the best part?
 
 /It works/. At least with a three frame window, 8 residual blocks and 96 hidden channels.
 
-[[file:readme_images/smooth_04122019_085304_checkpoint_best.gif][Smoothed video]]
+#+CAPTION: A smoothed GIF
+[[file:readme_images/smooth_04122019_085304_checkpoint_best.gif][A smooth GIF, less flicker]]
 
 If you want to read my COSC 200 report, you can do so [[file:white_papers/COSC_210_Paper.pdf][here]].
 
