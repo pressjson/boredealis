@@ -145,7 +145,8 @@ If you want to read my COSC 210 report (the class in which I developed this mode
 
 I made a fancy diagram for my AGU25 presentation. I want to show it off.
 
-[[file:readme_images/the_whole_agu_diagram.svg][Fancy Diagram. Admire it.]]
+#+CAPTION: Fancy diagram.
+[[file:readme_images/the_whole_agu_diagram.svg]]
 
 I spent so long (ten minutes) in my highly advanced vector-based graphics editor ([[excalidraw.io][Excalidraw]]) to make this beautiful graphic, so you better enjoy it.
 
