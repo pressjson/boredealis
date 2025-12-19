@@ -139,7 +139,7 @@ class DeflickerCNN(nn.Module):
     """
     def __init__(self, input_frames=5, num_res_blocks=8, hidden_channels=64, save_memory=False):
         if input_frames % 2 == 0:
-            print("Error: input_frames must be odd.")
+            print(f"Error: input_frames must be odd, currently {input_frames}")
             exit(-1)
         super(DeflickerCNN, self).__init__()
 
@@ -234,8 +234,8 @@ class RAFT(nn.Module):
 
     def forward(self, img1, img2):
         with torch.no_grad():
-            img1_byte = (img1 * 255).byte()
-            img2_byte = (img2 * 255).byte()
+            img1_byte = (torch.clamp(img1, 0, 1) * 255).byte()
+            img2_byte = (torch.clamp(img2, 0, 1) * 255).byte()
 
             img1_pre, img2_pre = self.transforms(img1_byte, img2_byte)
 
