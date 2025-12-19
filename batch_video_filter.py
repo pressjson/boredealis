@@ -6,9 +6,9 @@ I could do this in bash, but multithreading . . ."""
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", "-m", help="path to model", default="")
-parser.add_argument("--input", "-i", help="input path (include extension)", default="")
-parser.add_argument("--output", "-o", help="output path (include extension)", default="")
+parser.add_argument("--model", help="path to model", default="")
+parser.add_argument("--input", help="input path (include extension)", default="")
+parser.add_argument("--output", help="output path (include extension)", default="")
 parser.add_argument("--vids-per-device", "-V", default=1)
 parser.add_argument("--ext", default=".mp4")
 parser.add_argument("--filter", default=True, action=argparse.BooleanOptionalAction,

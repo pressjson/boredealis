@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--model", "-c", help="path to model", default="")
 parser.add_argument("--input", "-i", help="input path (include extension)", default="")
 parser.add_argument("--output", "-o", help="output path (include extension)", default="")
-parser.add_argument("--debug", "-d", help="enable debug")
+parser.add_argument("--debug", "-d", help="enable debug", action='store_true')
 parser.add_argument("--verbose", "-V", help="enable verbose")
 parser.add_argument("--version", "-v", action='version', version='No versions yet, but this is prerelease')
 parser.add_argument("--iterations", "-I", help="run the model ITERATIONS times", default=1)
@@ -36,6 +36,7 @@ arg_output = args.output
 arg_custom_model_path = args.model
 iterations = args.iterations
 BLEND_STRENGTH = args.blend
+debug = args.debug
 
 if not iterations > 0:
     console.print(f"Error: iterations must be larger than 1, currently at {iterations}.")
@@ -51,7 +52,7 @@ if not (0.0 <= BLEND_STRENGTH and BLEND_STRENGTH <= 1.0):
 
 from rich.progress import track
 import os
-import re
+# import re
 import time
 import torch
 from PIL import Image
@@ -202,10 +203,7 @@ def main(
 
     # get model size
 
-    if arg_filters:
-        response = arg_filters
-        model_path = os.path.join("models", f"{response}_checkpoint_best.pth")
-    elif arg_custom_model_path:
+    if arg_custom_model_path:
         model_path = arg_custom_model_path
     else:
         while True:
@@ -234,53 +232,50 @@ def main(
         )
         sys.exit(1)
 
-    if use_disk:
-        filter_video(model_path, video_path, save_path, device)
-    else:
-        filter_video_in_a_pipeline(model_path, video_path, save_path, device)
+    filter_video_in_a_pipeline(model_path, video_path, save_path, device)
 
-def filter_video(model_path, video_path, save_path, device):
-    # Make temporary directories
-    start_time = time.time()
-    tmp = resource_path("tmp")
-    tmp_original_images = resource_path(os.path.join("tmp", "original_images"))
-    tmp_filtered_images = resource_path(os.path.join("tmp", "filtered_images"))
-    if os.path.exists(tmp):
-        console.print("Warning: tmp directory exists. Removing . . .", style="yellow")
-        rmdir(tmp)
-    os.makedirs(tmp)
-    os.makedirs(tmp_original_images)
-    os.makedirs(tmp_filtered_images)
-    console.print("Converting the video into images . . .", style="green")
-    # ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
-    fps = cv_composer.decompose_video(video_path, tmp_original_images, verbose=False)
+# def filter_video(model_path, video_path, save_path, device):
+#     # Make temporary directories
+#     start_time = time.time()
+#     tmp = resource_path("tmp")
+#     tmp_original_images = resource_path(os.path.join("tmp", "original_images"))
+#     tmp_filtered_images = resource_path(os.path.join("tmp", "filtered_images"))
+#     if os.path.exists(tmp):
+#         console.print("Warning: tmp directory exists. Removing . . .", style="yellow")
+#         rmdir(tmp)
+#     os.makedirs(tmp)
+#     os.makedirs(tmp_original_images)
+#     os.makedirs(tmp_filtered_images)
+#     console.print("Converting the video into images . . .", style="green")
+#     # ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
+#     fps = cv_composer.decompose_video(video_path, tmp_original_images, verbose=False)
 
-    # print(f"FPS: {fps}")
+#     # print(f"FPS: {fps}")
 
-    model = test.load_model(model_path, verbose=debug, device=device)
-    console.print("Upscaling images . . .", style="green")
-    for image in track(os.listdir(tmp_original_images), description="Processing video . . ."):
-        image_path = os.path.join(tmp_original_images, image)
-        filtered_image = test.test(
-            image_path=image_path, preloaded_model=model, verbose=debug, device=device
-        )
-        match = re.match(r"(\w+)_(\d+)\.png", image)
-        # print(match.group(2))
-        save_name = f"filtered_{match.group(2)}.png"
-        # print(save_name)
-        filtered_image.save(os.path.join(tmp_filtered_images, save_name))
+#     model = test.load_model(model_path, verbose=debug, device=device)
+#     console.print("Upscaling images . . .", style="green")
+#     for image in track(os.listdir(tmp_original_images), description="Processing video . . ."):
+#         image_path = os.path.join(tmp_original_images, image)
+#         filtered_image = test.test(
+#             image_path=image_path, preloaded_model=model, verbose=debug, device=device
+#         )
+#         match = re.match(r"(\w+)_(\d+)\.png", image)
+#         # print(match.group(2))
+#         save_name = f"filtered_{match.group(2)}.png"
+#         # print(save_name)
+#         filtered_image.save(os.path.join(tmp_filtered_images, save_name))
 
-    console.print("Putting images back together . . .", style="green")
-    # constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
-    cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=debug)
+#     console.print("Putting images back together . . .", style="green")
+#     # constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
+#     cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=debug)
 
-    if remove_tmp:
-        console.print("Cleaning up . . .", style="green")
-        rmdir(tmp)
+#     if remove_tmp:
+#         console.print("Cleaning up . . .", style="green")
+#         rmdir(tmp)
 
-    console.print(
-        f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
-    )
+#     console.print(
+#         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
+#     )
 
 def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     start_time = time.time()
@@ -367,7 +362,15 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     return 1
 
 if __name__ == "__main__":
-    main(device=args.device)
+    if args.input and args.output and args.model and args.device:
+        filter_video_in_a_pipeline(
+            model_path=args.model,
+            video_path=args.input,
+            save_path=args.output,
+            device=args.device,
+        )
+    else:
+        main(device=args.device)
 # my_rmdir("test_videos")
 # if response_loop("Testing", ["a"]):
 #     print("success!")
