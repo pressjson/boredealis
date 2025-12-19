@@ -124,7 +124,7 @@ async def filter_video(args: ARGS, device):
 async def smooth_video(args: ARGS, device):
     cmd = [
         sys.executable,
-        "run_smoother.py",
+        "smoother_test.py",
         "--model", args.MODEL_PATH,
         "--input", args.input_path,
         "--output", args.output_path,
