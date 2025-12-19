@@ -50,7 +50,7 @@ class ARGS:
     def __init__(self, input_path, output_path):
         self.input_path = input_path
         self.output_path = output_path
-        self.MODEL_PATH = MODEL_PATH,
+        self.MODEL_PATH = MODEL_PATH
         self.OTHERS = OTHERS
         # self.device = ""
         # if self.OTHERS:
