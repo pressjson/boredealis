@@ -121,13 +121,13 @@ async def filter_video(args: ARGS, device):
     # )
 
 
-async def smooth_video(args: ARGS, device):
+async def smooth_video(these_args: ARGS, device):
     cmd = [
         sys.executable,
         "smoother_test.py",
-        "--model", args.MODEL_PATH,
-        "--input", args.input_path,
-        "--output", args.output_path,
+        "--model", these_args.MODEL_PATH,
+        "--input", these_args.input_path,
+        "--output", these_args.output_path,
         "--device", device,
     ]
     print(f"running {cmd} on device {device}")
