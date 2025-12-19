@@ -104,7 +104,7 @@ async def worker(device, queue):
             queue.task_done()
 
 async def filter_video(args: ARGS, device):
-    cmd = args.return_command() + [f"--device={device}"]
+    cmd = args.return_command() + ["--device", device]
     print(f"running {cmd} on device {device}")
     proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await proc.communicate()
