@@ -4,6 +4,13 @@
 
 I could do this in bash, but multithreading . . ."""
 
+import os
+if not os.path.exists("local_settings.py"):
+    print("Warning: local settings not found. Using default settings.")
+    import settings
+else:
+    import local_settings as settings
+
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", help="path to model", default="")
@@ -14,6 +21,8 @@ parser.add_argument("--ext", default=".mp4")
 parser.add_argument("--filter", default=True, action=argparse.BooleanOptionalAction,
                     help="--filter for cloud removal, --no-filter for smoothing; default is filter")
 parser.add_argument("--debug", action='store_true', default=False)
+parser.add_argument("--device", nargs="*", default=settings.DEVICE_IDS if settings.USE_DEVICE_IDS else "cuda",
+                    help="the numbers for device ids to use, e.g. <0 1 2 3>")
 [args, OTHERS] = parser.parse_known_args()
 
 INPUT_DIR = args.input
@@ -23,28 +32,23 @@ VIDS_PER_DEVICE = int(args.vids_per_device)
 FILTER = args.filter
 EXT = args.ext
 print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(OTHERS))}")
-
 if OTHERS:
     print(f"    others: {OTHERS}")
+
+AVAILABLE_DEVICES = [f"cuda:{int(x)}" for x in args.device] * VIDS_PER_DEVICE
+print(f"running on {AVAILABLE_DEVICES}")
+MAX_WORKERS = len(AVAILABLE_DEVICES)
 
 import sys
 if args.debug:
     print("Debug complete!")
     sys.exit(0)
 
-import os
 if not os.path.exists(INPUT_DIR) or INPUT_DIR == "":
     print(f"error: input dir {INPUT_DIR} does not exist")
     sys.exit(-1)
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-
-if not os.path.exists("local_settings.py"):
-    print("Warning: local settings not found. Using default settings.")
-    import settings
-else:
-    import local_settings as settings
 
 class ARGS:
     def __init__(self, input_path, output_path):
@@ -71,16 +75,15 @@ class ARGS:
         #     cmd = cmd + [self.device]
         return cmd
 
-AVAILABLE_DEVICES = [f"cuda:{x}" for x in settings.DEVICE_IDS] * VIDS_PER_DEVICE if settings.DEVICE_IDS else ["cpu"]
-print(f"running on {AVAILABLE_DEVICES}")
-MAX_WORKERS = len(AVAILABLE_DEVICES)
 
 import time
 import asyncio
 from asyncio import Queue
 
+total_items = 0
+completed_count = 0
 
-def init_queue(folder):
+def init_queue(folder) -> asyncio.Queue:
     q = Queue()
     for root, _, files in os.walk(folder):
         for f in files:
@@ -96,6 +99,7 @@ async def worker(device, queue):
             output_path = os.path.splitext(os.path.join(OUTPUT_DIR, item))[0] + EXT
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             args = ARGS(input_path, output_path)
+            completed_count += 1
             if FILTER:
                 await filter_video(args, device)
             else:
@@ -108,20 +112,9 @@ async def filter_video(args: ARGS, device):
     print(f"running {cmd} on device {device}")
     proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await proc.communicate()
-    # await asyncio.sleep(1)
-
-    # cpu-bound, no gpu parallelism
-    # print(f"running filter on device {device}")
-    # return await asyncio.to_thread(
-    #     filter_video_in_a_pipeline,
-    #     args.MODEL_PATH,
-    #     args.input_path,
-    #     args.output_path,
-    #     device
-    # )
-
 
 async def smooth_video(these_args: ARGS, device):
+    t = time.time()
     cmd = [
         sys.executable,
         "smoother_test.py",
@@ -130,17 +123,21 @@ async def smooth_video(these_args: ARGS, device):
         "--output", these_args.output_path,
         "--device", device,
     ]
-    print(f"running {cmd} on device {device}")
+    item = completed_count
+    print(f"running {cmd} | item {item} / {total_items} ")
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     stdout, stderr = await proc.communicate()
+    print(f"finished item {item} in {time.time() - t:.2f}s")
 
 async def main():
     print("initializing . . .")
     q = init_queue(INPUT_DIR)
+    print(f"initialized with {len(q)} items.")
+    total_items = len(q)
     tasks = []
     print("filtering . . .")
     for device in AVAILABLE_DEVICES:

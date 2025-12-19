@@ -203,7 +203,7 @@ def main(
         print(f"Error: the sliding window {len(window)} is not the same size as input frames {input_frames}")
         exit(-1)
 
-    roi_mask = generate_circle_mask(device=device)
+    roi_mask = generate_circle_mask(height=height, width=width, device=device)
     inverse_mask = 1 - roi_mask
     middle_idx = input_frames // 2
     start_channel = middle_idx * 3

@@ -24,8 +24,6 @@ if not os.path.exists("local_settings.py"):
 else:
     import local_settings as settings
 
-# from gemini
-
 class VideoDataset(Dataset):
     """Dataset for loading six(?) frames."""
     def __init__(self, files, height=608, width=608, window=5):
