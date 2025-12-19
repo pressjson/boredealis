@@ -101,7 +101,7 @@ It's great, but *the flicker hurts my head*. - Gerard Fasel, 2025
 
 @TODO: find out why GitHub doesn't like showing these GIFs inline. Too big of a file size? They show up just fine in the raw viewer when clicked on.
 #+CAPTION: A filtered but flickery GIF
-[[file:readme_images/filtered_04122019_085304_checkpoint_best.gif][A filtered GIF, lots of flicker.]]
+[[file:readme_images/filtered_04122019_085304_checkpoint_best.gif]]
 
 So how do we solve AI's problems? That's right, more AI! Hasn't that worked out so well for Microsoft?
 
@@ -112,7 +112,7 @@ And you know the best part?
 /It works/. At least with a three frame window, 8 residual blocks and 96 hidden channels.
 
 #+CAPTION: A smoothed GIF
-[[file:readme_images/smooth_04122019_085304_checkpoint_best.gif][A smooth GIF, less flicker.]]
+[[file:readme_images/smooth_04122019_085304_checkpoint_best.gif]]
 
 If you want to read my COSC 210 report (the class in which I developed this model), you can do so [[file:white_papers/COSC_210_Paper.pdf][here]].
 
