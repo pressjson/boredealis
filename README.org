@@ -5,37 +5,14 @@ Using machine learning to remove clouds from a video of the Aurora Borealis.
 
 * Methodology
 
-So vision transformers are really meant for image classification. Time to learn a new technology! Let's start with a U-Net and work from there.
-
-@TODO: (fixed) (mostly)
-1. Go from videos to images
-   - FFmpeg can do this: ~ffmpeg -i input.avi output_%04d.png~
-   - Done (for now)
-2. Get all of the data of clear skies, put them in a train directory, and prepare the images for training (done?)
-3. Model to train (done)
-   - Includes two transforms in the dataloader:
-     - one for clear data (i.e. it's unmodified) (done?), and
-     - one for clouds (i.e. it's faking clouds over the same image) (Randy) (done)
-4. A script to take a video, make it a bunch of images (done), then chunks(?), then enhance (done), then reverse the process (not done)
-5. Convert the input video to polar coordinates to capture only the relevant information
-6. A . . . GUI? Nah, I'm a backend dev (or like to think I am). How about a CLI?
-7. What about a bootstrap script?
-8. Store images in RAM instead of writing to disk (done)
-   - Pros: speed? I think I/O operations are making video test times incredibly long (~20 mins to filter a 2.5 minute video)
-   - Cons: memory usage. ~1.5 GB of PNG images get saved to disk just decomposing a video. Could run into memory overflow issues
-     - Solution: give a flag to use disk caching instead of RAM caching
-       - Pros: flexibility across many systems, from my PC to my shitty MacBook Air
-       - Cons: complexity.
-
-@TODO: (for real) (maybe)
-1. Implement a radial transform
-   - Saves on computational efficiency
-2. Make fancier clouds (done)
-   - Blender? Godot?
-   - Prebake data pairs
-   - Remake the dataloader to accept these data pairs
-3. A Multi-Frame CNN to reduce flicker
-4. Hyperparameter tuning for "diffusion"
+@TODO:
+1. Upload my models to the releases tab
+2. Test /everything/
+3. Update run.sh (or just make it obsolete)
+   - Make it a bootstrap.sh instead
+4. Allow main.py to both filter and smooth a video
+   - Probably using a temp file to make life easier
+5. A TUI
 
 The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][Perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
@@ -109,8 +86,6 @@ I was sitting bored in Dr. Scalzo's class during the group presentations. One of
 
 So yeah. It somehow works. It works better on more than just this example. It works better on my entire testing dataset. Blessed be.
 
-@TODO: Hyperparameter tuning.
-
 So far, the following parameters appear to be best by visual inspection:
 - 64 filters: 0.2-0.35
 - 96 filters: 0.2-0.6
@@ -179,9 +154,9 @@ Then, you have two options:
 
 *** Use the shell script
 
-~run.sh~ will bootstrap the virtual enviornment if it does not exist, enter into the virtual enviornment if it is not in one already, and then call ~main.py~ to start the project. I do not know if it works on Windows, but given that I call paths with the Unix style right now, it probably will not. If you are on Windows, I would recommend building the packages manually.
+@FIXME
 
-@TODO: does this actually work? I don't know. I need to clean up ~run.sh~. For now, just use manual installing. It's like five commands.
+~run.sh~ will bootstrap the virtual enviornment if it does not exist, enter into the virtual enviornment if it is not in one already, and then call ~main.py~ to start the project. I do not know if it works on Windows, but given that I call paths with the Unix style right now, it probably will not. If you are on Windows, I would recommend building the packages manually.
 
 This does not support clicking on ~run.sh~ and having a new terminal window popping up, as the way to pop up a new terminal window is not standard, and I do not want to go through the pain of making a bash script to check every terminal emulator. And no, I will not be making a GUI.
 
@@ -203,8 +178,9 @@ There is a similar command for Windows, but I do not develop on Windows (I use A
 
 1. Recommended: ~python3 -m venv venv~ to make a virtual environment inside the project directory.
 2. Recommended: ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages system-wide (I do not recommend this, as I am a big fan of virtual environments and reproducibility).
-3. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~. If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install torch and torchvision /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the Pytorch website]]), and then install the requirements.
-4. Install the models from the releases page into a directory called ~models~.
+3. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~.
+   - If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install PyTorch /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the Pytorch website]]), and then install the requirements.
+4. Install the models from the releases page.
 5. Have fun?
 
 * FAQ
