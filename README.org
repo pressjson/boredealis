@@ -99,7 +99,6 @@ The next step is to use proper metrics on the training data.
 It's great, but *the flicker hurts my head*. - Gerard Fasel, 2025
 #+END_QUOTE
 
-@TODO: find out why GitHub doesn't like showing these GIFs inline. Too big of a file size? They show up just fine in the raw viewer when clicked on.
 #+CAPTION: A filtered but flickery GIF
 [[file:readme_images/filtered_04122019_085304_checkpoint_best.gif]]
 
