@@ -19,7 +19,7 @@ parser.add_argument("--debug", action='store_true', default=False)
 INPUT_DIR = args.input
 OUTPUT_DIR = args.output
 MODEL_PATH = args.model
-VIDS_PER_DEVICE = 1
+VIDS_PER_DEVICE = args.vids_per_device
 FILTER = args.filter
 EXT = args.ext
 print(f"args: input = {INPUT_DIR} | output = {OUTPUT_DIR} | model = {MODEL_PATH} | addtl args: {max(0, len(OTHERS))}")
