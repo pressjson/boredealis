@@ -136,8 +136,8 @@ async def smooth_video(these_args: ARGS, device):
 async def main():
     print("initializing . . .")
     q = init_queue(INPUT_DIR)
-    print(f"initialized with {len(q)} items.")
-    total_items = len(q)
+    print(f"initialized with {q.qsize()} items.")
+    total_items = q.qsize()
     tasks = []
     print("filtering . . .")
     for device in AVAILABLE_DEVICES:
