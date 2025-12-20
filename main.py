@@ -360,6 +360,7 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
 if __name__ == "__main__":
     output = args.output
     temp = "tmp/tmp_filtered.mp4"
+
     if args.smoother:
         if os.path.exists("tmp"):
             console.print("[yellow]Warning: temporary directory tmp exists. Removing . . .")
