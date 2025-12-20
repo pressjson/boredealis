@@ -93,17 +93,18 @@ def init_queue(folder) -> asyncio.Queue:
 
 async def worker(device, queue):
     while True:
+        global completed_count
         item = await queue.get()
         try:
             input_path = os.path.join(INPUT_DIR, item)
             output_path = os.path.splitext(os.path.join(OUTPUT_DIR, item))[0] + EXT
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             args = ARGS(input_path, output_path)
-            completed_count += 1
             if FILTER:
                 await filter_video(args, device)
             else:
                 await smooth_video(args, device)
+            completed_count += 1
         finally:
             queue.task_done()
 
@@ -134,6 +135,7 @@ async def smooth_video(these_args: ARGS, device):
     print(f"finished item {item} in {time.time() - t:.2f}s")
 
 async def main():
+    global total_items
     print("initializing . . .")
     q = init_queue(INPUT_DIR)
     print(f"initialized with {q.qsize()} items.")
