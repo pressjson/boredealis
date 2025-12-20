@@ -128,20 +128,22 @@ I spent so long (ten minutes) in my highly advanced vector-based graphics editor
 
 Hey, we got accepted to ISVC with Randthree! You can check out the white paper somewhere, whenever Springer gets around to publishing it. In the meantime, you can read it [[file:white_papers/ISVC_2025_Declouding_The_Aurora_Borealis.pdf][here]] if you are so inclined. If you even exist.
 
-We're maybe working on writing /another/ white paper to send to /Nature/. More to follow later.
+We're maybe working on writing /another/ white paper to send to /Nature/ (allegedly). More to follow later.
 
 * Installing
 
-I develop on Linux, using Arch (and Omarchy btw). I do not have a copy of Windows. As such, I do not know if any of this works on Windows. I am almost positive that my bash does not, because Windows uses ~\~ for directory navigation and Unix (Linux, macOS) uses the correct ~/~ for directory navigation.
+I develop on Linux, using Arch (and Omarchy btw). I do not have a copy of Windows. As such, I do not know if any of this works on Windows. I am almost positive that my bash does not, because Windows uses ~\~ for directory navigation and the Unix-likes (Linux and macOS) uses the correct ~/~ for directory navigation. If you're using something else, you're above my paygrade.
 
 @TODO: make this work on Windows.
 
+@DONE, fuck Windows, use WSL.
+
 ** Prerequisites
 
-- Python3
+- Python 3
   - I personally develop on the edge with Python, but I am sure it works with older versions of Python 3. I have tested this to as early as 3.10.x, and it works there.
-
-@TODO: migrate to curl, which is natively installed on macOS.
+  - ~pip~ to install the packages. You can try and live without ~pip~, but /good luck/.
+  - ~venv~ for virtual environments. It's not /required/, but I highly recommend using a virtual environment. You can install packages globally if you can't ~venv~.
 
 ** Actually installing
 
@@ -153,13 +155,14 @@ Then, you have two options:
 
 *** Use the shell script
 
-@FIXME
+Hit 'em with a ~./bootstrap.sh~ after a ~chmod +x bootstrap.sh~. This sets up your virtual environment, because five commands is too difficult.
 
-~run.sh~ will bootstrap the virtual enviornment if it does not exist, enter into the virtual enviornment if it is not in one already, and then call ~main.py~ to start the project. I do not know if it works on Windows, but given that I call paths with the Unix style right now, it probably will not. If you are on Windows, I would recommend building the packages manually.
+Requirements:
+- ~venv~
+- ~pip~
+- ~curl~
 
-This does not support clicking on ~run.sh~ and having a new terminal window popping up, as the way to pop up a new terminal window is not standard, and I do not want to go through the pain of making a bash script to check every terminal emulator. And no, I will not be making a GUI.
-
-If you want to have CUDA enabled, you will have to do the following:
+If you want to have CUDA enabled, you may have to install PyTorch manually. You can find how to in [[https://pytorch.org/get-started/locally/][the PyTorch website]]. It's one command. I believe in you.
 
 #+begin_src shell
 source venv/bin/activate # if not in the virtual enviornment already
@@ -169,16 +172,14 @@ pip3 uninstall torch torchaudio torchvision
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3
 #+end_src
 
-PyTorch on macOS already comes with ~mps~, so no need to install anything fancy.
-
-There is a similar command for Windows, but I do not develop on Windows (I use Arch btw).
+PyTorch on macOS already comes with ~mps~, so no need to install anything fancy. Just remember to pass ~--device mps~ into the models.
 
 *** Install the packages manually
 
 1. Recommended: ~python3 -m venv venv~ to make a virtual environment inside the project directory.
 2. Recommended: ~source venv/bin/activate~ to go into the virtual environment. Do this every time you want to run this project, if you don't install the required packages system-wide (I do not recommend this, as I am a big fan of virtual environments and reproducibility).
 3. ~pip install -r requirements.txt~ to install the requirements listed in ~requirements.txt~.
-   - If you have issues with torch, remove the venv (~rm -rf venv~), make a new virtual environment, install PyTorch /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the Pytorch website]]), and then install the requirements.
+   - If you have issues with PyTorch, remove the venv (~rm -rf venv~), make a new virtual environment, install PyTorch /first/ (follow the command for your system on [[https://pytorch.org/get-started/locally/][the PyTorch website]]), and then install the requirements.
 4. Install the models from the releases page.
 5. Have fun?
 
@@ -192,13 +193,25 @@ Instead of sitting through the interactive TUI every time, you can skip it by pa
 python3 main.py --input <input_file> --output <output_location> --model <model_path>
 #+end_src
 
-Use ~--help~ for a full list of available flags.
+Do a ~python3 main.py --help~ for a full list of available flags.
+
+#+BEGIN_QUOTE
+IMPORTANT: As far as I know, paths with spaces are NOT working. For example, this will /not/ work:
+
+#+BEGIN_SRC bash
+python3 main.py --input /home/pressjson/My Documents/boredealis/input_video.mov --output /home/pressjson/My Documents/boredealis/output_video.mov --model /home/pressjson/My Documents/boredealis/model.pth
+#+END_SRC
+
+I don't know if escaping spaced characters works. But for the love of God, don't keep this project in a path that has spaces leading to it.
+
+Depending on how tedious the solution is, I will not be fixing this issue.
+#+END_QUOTE
 
 *** Do I have to type in the file paths every single time?
 
 Not necessarily. Most terminal emulators support dragging and dropping files as a way to paste their paths. Up arrow is a great way to re-bring up your last used query/entry.
 
-Usually copying a file (~C-c~) and pasting it (~C-V~) into the terminal also works.
+Usually copying a file (~C-c~) and pasting it (~C-V~) into the terminal also works. macOS's ~C-v~ works with most terminals (in macOS) just fine, but most Linux terminals require ~C-V~ (control + shift + v) to paste into terminals. Omarchy (btw) supports ~S-v~.
 
 ** Where can I get some models?
 
@@ -222,7 +235,7 @@ Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not chan
 
 If you want to be super lazy and never change any settings and just want the noises to go away, you can make a symbolic link between ~settings.py~ and ~local_settings.py~:
 
-#+begin_src shell
+#+begin_src bash
 ln -s settings.py local_settings.py
 #+end_src
 
@@ -238,8 +251,6 @@ It's okay.
 
 I suffer from a skill issue as well.
 
-Are you on Windows? I have not tested it on Windows.
-
-@TODO: test it on Windows.
+Are you on Windows? Use WSL. I don't want to do Windows.
 
 Is there a bug? Like an honest-to-God moth in my code? If so, please report it.

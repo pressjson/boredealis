@@ -10,9 +10,7 @@ console = Console()
 # Up here to make -h and -v snappy
 
 # MAGIC NUMBERS
-iterations = 1
 # @TODO: tune this parameter
-BLEND_STRENGTH = 0.15
 PATIENCE = 10
 BOUNDS_RECALCULATION = 100
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
@@ -29,6 +27,7 @@ parser.add_argument("--version", "-v", action='version', version='No versions ye
 parser.add_argument("--iterations", "-I", help="run the model ITERATIONS times", default=1)
 parser.add_argument("--blend", help="the amount of alpha to use \"DDPM\" with", default=0.0)
 parser.add_argument("--device", help="use custom device DEVICE", default="cpu")
+parser.add_argument("--smoother", "-c", help="path to smoother model; if none, no smoothing", default="")
 args = parser.parse_args()
 
 arg_input = args.input
@@ -37,6 +36,7 @@ arg_custom_model_path = args.model
 iterations = args.iterations
 BLEND_STRENGTH = args.blend
 debug = args.debug
+arg_smoother = args.smooher
 
 if not iterations > 0:
     console.print(f"Error: iterations must be larger than 1, currently at {iterations}.")
@@ -134,10 +134,6 @@ def main(
     # Smart? Probably not, it hurts my C brain
     # Does it work? Yes.
 ):
-    # For macOS
-    if torch.backends.mps.is_available():
-        device = "mps"
-
     # print title
     f = open(resource_path("title.txt"), "r")
     title = f.read()
@@ -288,7 +284,7 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
 
-    model = test.load_model(model_path, verbose=debug, device=device)
+    model = test.load_model(model_path, verbose=args.verbose, device=device)
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -311,7 +307,7 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
 
 
-    for i in track(range(total_frames), description="[green]Processing video . . .[/green]"):
+    for i in track(range(total_frames), description=f"[green]Processing video {video_path}. . .[/green]"):
         loop_start_time = time.time()
         ret, frame = cap.read()
         if not ret:
@@ -341,7 +337,7 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
                 image=image_pil,
                 preloaded_model=model,
                 device=device,
-                verbose=debug,
+                verbose=args.verbose,
                 fake_clouds=fake_clouds,
             )
 
@@ -362,6 +358,15 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     return 1
 
 if __name__ == "__main__":
+    output = args.output
+    temp = "tmp/tmp_filtered.mp4"
+    if args.smoother:
+        if os.path.exists("tmp"):
+            console.print("[yellow]Warning: temporary directory tmp exists. Removing . . .")
+            rmdir("tmp")
+        os.makedirs(name="tmp")
+        args.output = temp
+
     if args.input and args.output and args.model and args.device:
         filter_video_in_a_pipeline(
             model_path=args.model,
@@ -371,6 +376,14 @@ if __name__ == "__main__":
         )
     else:
         main(device=args.device)
-# my_rmdir("test_videos")
-# if response_loop("Testing", ["a"]):
-#     print("success!")
+
+    if args.smoother:
+        import smoother_test
+        smoother_test.main(
+            model_path=args.smoother,
+            input_video_path=temp,
+            output_path=output,
+            device=args.device,
+            verbose=args.verbose
+        )
+        rmdir("tmp")
