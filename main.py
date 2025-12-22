@@ -18,16 +18,16 @@ VALID_MODEL_SIZES = ["96", "128"]
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", "-c", help="path to model", default="")
+parser.add_argument("--model", "-m", help="path to model", default="")
 parser.add_argument("--input", "-i", help="input path (include extension)", default="")
 parser.add_argument("--output", "-o", help="output path (include extension)", default="")
 parser.add_argument("--debug", "-d", help="enable debug", action='store_true')
 parser.add_argument("--verbose", "-V", help="enable verbose")
 parser.add_argument("--version", "-v", action='version', version='No versions yet, but this is prerelease')
-parser.add_argument("--iterations", "-I", help="run the model ITERATIONS times", default=1)
-parser.add_argument("--blend", help="the amount of alpha to use \"DDPM\" with", default=0.0)
-parser.add_argument("--device", help="use custom device DEVICE", default="cpu")
-parser.add_argument("--smoother", "-c", help="path to smoother model; if none, no smoothing", default="")
+parser.add_argument("--iterations", "-I", help="run the model ITERATIONS times, default 1", default=1)
+parser.add_argument("--blend", help="the amount of alpha to use \"DDPM\" with, default 0.0", default=0.0)
+parser.add_argument("--device", help="use custom device DEVICE", default="")
+parser.add_argument("--smoother", "-s", help="path to smoother model; if none, no smoothing", default="")
 args = parser.parse_args()
 
 arg_input = args.input
@@ -36,7 +36,7 @@ arg_custom_model_path = args.model
 iterations = args.iterations
 BLEND_STRENGTH = args.blend
 debug = args.debug
-arg_smoother = args.smooher
+arg_smoother = args.smoother
 
 if not iterations > 0:
     console.print(f"Error: iterations must be larger than 1, currently at {iterations}.")
@@ -358,6 +358,8 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     return 1
 
 if __name__ == "__main__":
+    if not args.device:
+        args.device="cuda" if torch.cuda.is_available() else "cpu"
     output = args.output
     temp = "tmp/tmp_filtered.mp4"
 
