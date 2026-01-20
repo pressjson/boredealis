@@ -1,3 +1,4 @@
+"""Train the U-Net."""
 import os
 from collections import OrderedDict
 import time
@@ -119,10 +120,8 @@ def make_dataloaders(train, valid, data_dir, clear_transform, cloud_transform):
     return train_dataloader, valid_dataloader
 
 
-# perlin noise shenanigains
-
 def hex_to_rgb(hex):
-    """Takes a hex string and returns the corresponding RGB tuple.
+    """Take a hex string and returns the corresponding RGB tuple.
 
     From https://www.30secondsofcode.org/python/s/hex-to-rgb/
 
@@ -145,6 +144,7 @@ def generate_perlin_noise_map(
     weight=1.0,
 ):
     """Generate a Perlin noise map of size (size, size).
+
     Args:
         size (int): The size of the final array.
         iterations (int): The number of iterations to do. 1 = Perlin noise, more = fBm
@@ -228,6 +228,7 @@ def colorize_array(normalized_world, lower_bound, upper_bound):
 
     return Image.fromarray(pixels)
 
+
 def draw_center_circle(
     radius=250,
     vertical_offset=15,
@@ -258,11 +259,10 @@ def draw_center_circle(
 
     return mask
 
+
 def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
     """
-    Takes a PIL image of 608x608 and keeps only a center circle
-    with a radius of 250 pixels. The area outside the circle
-    will be made transparent.
+    Takes a PIL image of 608x608 and keeps only a center circle with a radius of 250 pixels. The area outside the circle will be made transparent.
 
     Args:
         pil_image (PIL.Image.Image): The input image, must be 608x608.
@@ -345,16 +345,6 @@ class CombineWithClouds:
 
     def __call__(self, main_image):
         main_image = main_image.convert("RGBA")
-        # Using static grayscale clouds
-        # lower = random.randint(0, 130)
-        # upper = random.randint(150, 255)
-
-        # Using a file of cloud values
-        # lower_bound = hex_to_rgb(random.choice(cloud_colors.LOWER_BOUNDS))
-        # upper_bound = hex_to_rgb(random.choice(cloud_colors.UPPER_BOUNDS))
-        # print(f"Lower bound = {lower_bound}")
-        # print(f"Upper bound = {upper_bound}")
-        # print(f"Main image: {main_image}")
 
         # Using the pixels in the image plus a grey
         # relies on randomness to eventually pick a valid pixel
@@ -375,22 +365,9 @@ class CombineWithClouds:
         fake_clouds = generate_perlin_noise_map(
             settings.IMAGE_SIZE[0], iterations=random.randint(3, 5)
         )
-        # for _ in range(0, random.randint(3, 5)):
-        #     more_fake_clouds = generate_perlin_noise_map(settings.IMAGE_SIZE[0])
-        #     fake_clouds = numpy.maximum(fake_clouds, more_fake_clouds)
-        # print(f"Fake clouds: {fake_clouds}")
-
         fake_clouds = colorize_array(
             fake_clouds, lower_bound=lower_bound, upper_bound=upper_bound
         )
-
-        # print(f"Cropped clouds: {cropped_clouds}")
-
-        # combined_image = Image.blend(
-        #     main_image,
-        #     cropped_clouds,
-        #     random.uniform(alpha_lower_bound, alpha_upper_bound),
-        # )
         blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
         if self.alpha_strength:
             blend_strength = self.alpha_strength
@@ -409,7 +386,6 @@ class CombineWithClouds:
 
             ImageFilter.GaussianBlur(radius=random.randint(0, 1) if self.alpha_strength else 0)
         )
-        # blurred_center = crop_to_center_circle(blurred_image)
 
         blur_mask = draw_center_circle()
         final_image.paste(blurred_image, (0, 0), blur_mask)
@@ -434,7 +410,6 @@ class RandomApplyTransforms:
             # do nothing
             return TF.to_tensor(sample)
 
-        # apply multiple clouds
         cloud = CombineWithClouds(self.output_size, self.alpha_strength)
 
         sample = cloud(sample)
@@ -506,119 +481,17 @@ def train_model(
         ]
     )
 
-    # Making the datasets from data/images by default
-    # This approach combines all of the images into one dataset, which is bad because it can cause
-    # similar looking frames to be in both the training and validation set
-
-    # images = []
-
-    # i = settings.NUM_IMAGES
-    # for file in os.listdir(data_dir):
-    #     images.append(file)
-    #     if i != -1:
-    #         i = i - 1
-    #         if i == 0:
-    #             break
-
-    # print(f"Found {len(images)} images")
-
-    # if len(images) == 0:
-    #     raise ValueError(
-    #         f"No images found in {images}. Check file naming and structure."
-    #     )
-    # print(
-    #     f"Using {int(settings.VALUE_SPLIT * len(images))} for training and {len(images) - int(settings.VALUE_SPLIT * len(images))} for validation"
-    # )
-    # random.shuffle(images)
-    # train = images[: int(settings.VALUE_SPLIT * len(images))]
-    # valid = images[int(settings.VALUE_SPLIT * len(images)) :]
-
-    # This approach uses videos decomposed into folders
-    # DATA
-    #   VIDEO_1
-    #     frame_0001.png
-    #     frame_0002.png
-    #     ...
-    #   VIDEO_2
-    #     frame_001.png
-    #     ...
-    #   ...
-
-    # videos = []
-    # for video_path in os.listdir(data_dir):
-    #     videos.append(video_path)
-
-    # look, ma, i'm refactoring!
-
-    # random.shuffle(videos)
-
-    # train_videos = videos[: int(settings.VALUE_SPLIT * len(videos))]
-    # valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)) :]
-
-    # train = []
-    # valid = []
-    # for video in train_videos:
-    #     video_path = os.path.join(data_dir, video)
-    #     # if debug:
-    #     #     print(video)
-    #     for image in os.listdir(video_path):
-    #         image = os.path.join(video, image)
-    #         train.append(image)
-
-    # for video in valid_videos:
-    #     video_path = os.path.join(data_dir, video)
-    #     for image in os.listdir(video_path):
-    #         image = os.path.join(video, image)
-    #         # if debug:
-    #         #     print(image)
-    #         valid.append(image)
-
-    # random.shuffle(train)
-    # random.shuffle(valid)
-
-    # if settings.NUM_IMAGES != -1:
-    #     train = train[: int(settings.NUM_IMAGES * settings.VALUE_SPLIT)]
-    #     valid = valid[: int(settings.NUM_IMAGES * (1 - settings.VALUE_SPLIT))]
-
     train, valid = make_video_datasets(data_dir)
 
     print(
         f"Using {len(train)} images for training and {len(valid)} images for validation"
     )
 
-    # train_dataset = ImageDataset(
-    #     train,
-    #     data_dir=data_dir,
-    #     clear_transform=clear_transform,
-    #     cloud_transform=cloud_transform,
-    # )
-    # valid_dataset = ImageDataset(
-    #     valid,
-    #     data_dir=data_dir,
-    #     clear_transform=clear_transform,
-    #     cloud_transform=cloud_transform,
-    # )
-
-    # train_dataloader = DataLoader(
-    #     train_dataset,
-    #     batch_size=settings.BATCH_SIZE,
-    #     num_workers=settings.NUM_WORKERS,
-    #     shuffle=True,
-    #     pin_memory=(device.type == "cuda"),
-    # )
-    # valid_dataloader = DataLoader(
-    #     valid_dataset,
-    #     batch_size=settings.BATCH_SIZE,
-    #     num_workers=settings.NUM_WORKERS,
-    #     shuffle=True,
-    #     pin_memory=(device.type == "cuda"),
-    # )
-
     train_dataloader, valid_dataloader = make_dataloaders(
         train, valid, data_dir, clear_transform, cloud_transform
     )
 
-    if debug == True:
+    if debug:
         print("Visualizing a sample from training data...")
         sample_inputs, sample_targets = next(iter(train_dataloader))
         # output_tensor * 0.5 + 0.5
