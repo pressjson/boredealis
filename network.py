@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import os
 from collections import OrderedDict
 import time
@@ -8,14 +6,13 @@ import numpy
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
-import torch.nn.functional as F  # Needed for GELU in TransformerEncoderLayer
 import torchvision.transforms.functional as TF
+from torchvision import transforms
 import torch.optim as optim
-from torchvision import models, transforms
 from PIL import Image, ImageDraw, ImageFilter
 import noise
-
-# import cloud_colors
+from unet_model import DeepUNet
+from vgg_loss import VGGLoss
 
 if not os.path.exists("local_settings.py"):
     print("Warning: local settings not found. Using default settings.")
@@ -51,14 +48,7 @@ class ImageDataset(Dataset):
         return cloud_image, clear_image
 
 
-# google gemini pro 2.5 advanced code
-# edited by me
-
-# some refactoring
-
-
 def make_video_datasets(data_dir):
-
     videos = []
     for video_path in os.listdir(data_dir):
         videos.append(video_path)
@@ -167,8 +157,6 @@ def generate_perlin_noise_map(
     world = numpy.zeros((size, size))
     if iterations < 1:
         return world
-    # Set random defaults inside the function if they are not provided
-    # Thanks for the advice, Gemini
     if scale is None:
         scale = random.uniform(100.0, 400.0)
     if octaves is None:
@@ -232,8 +220,6 @@ def colorize_array(normalized_world, lower_bound, upper_bound):
             g = int(g_low + abs(g_up - g_low) * noise_val_norm)
             b = int(b_low + abs(b_up - b_low) * noise_val_norm)
 
-            # Clamp values just in case of floating point inaccuracies, though not strictly necessary
-            # with proper normalization and int conversion.
             r = max(0, min(255, r))
             g = max(0, min(255, g))
             b = max(0, min(255, b))
@@ -243,11 +229,11 @@ def colorize_array(normalized_world, lower_bound, upper_bound):
     return Image.fromarray(pixels)
 
 def draw_center_circle(
-    radius = 250,
-    vertical_offset = 15,
-    size = settings.IMAGE_SIZE
+    radius=250,
+    vertical_offset=15,
+    size=settings.IMAGE_SIZE
 ):
-    """Draws the center circle."""
+    """Draw the center circle."""
     width, height = settings.IMAGE_SIZE
     radius = 250
     vertical_offset = 15
@@ -285,11 +271,6 @@ def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
         PIL.Image.Image: A new image with the circular crop applied.
                          The image will be in RGBA format.
     """
-
-    # radius = 250
-    # vertical_offset = 15
-    # width, height = pil_image.size  # Should be 608, 608
-
     # Ensure the image has an alpha channel for transparency
     img_rgba = pil_image.convert("RGBA")
 
@@ -300,14 +281,15 @@ def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
 
 
 def sum_of_vals(arr):
-    """Returns the sum of all values in arr"""
+    """Return the sum of all values in arr."""
     sum = 0
     for i in arr:
         sum += i
     return sum
 
+
 def get_random_valid_coords(sampling_image, boost=0):
-    """Gets random valid coordinates in an image. Valid is in the center circle.
+    """Get random valid coordinates in an image. Valid is in the center circle.
 
     Args:
         main_image (PIL.Image.Image): The image to get a bound from. Should be cropped before.
@@ -353,7 +335,6 @@ def make_alpha_image(
     circle_mask = numpy.array(draw_center_circle())
     final_alpha = ((alpha_world * blend_strength) * (circle_mask / 255.0) * 255).astype(numpy.uint8)
     return Image.fromarray(final_alpha)
-
 
 
 class CombineWithClouds:
@@ -425,6 +406,7 @@ class CombineWithClouds:
         final_image = combined_image.copy()
 
         blurred_image = combined_image.filter(
+
             ImageFilter.GaussianBlur(radius=random.randint(0, 1) if self.alpha_strength else 0)
         )
         # blurred_center = crop_to_center_circle(blurred_image)
@@ -433,9 +415,6 @@ class CombineWithClouds:
         final_image.paste(blurred_image, (0, 0), blur_mask)
 
         return final_image.convert("RGB")
-
-
-# google gemini
 
 
 class RandomApplyTransforms:
@@ -465,457 +444,6 @@ class RandomApplyTransforms:
         sample = torch.clamp(sample, 0.0, 1.0)
 
         return sample
-
-
-# VGG loss, implemented on https://github.com/crowsonkb/vgg_loss?tab=readme-ov-file
-# It's under an MIT License, soooooo yeah this should be good to yoink
-# @TODO: refactor this to a new file
-
-
-# class Lambda(nn.Module):
-#     """Wraps a callable in an :class:`nn.Module` without registering it."""
-
-#     def __init__(self, func):
-#         super().__init__()
-#         object.__setattr__(self, "forward", func)
-
-#     def extra_repr(self):
-#         return getattr(self.forward, "__name__", type(self.forward).__name__) + "()"
-
-
-# class WeightedLoss(nn.ModuleList):
-#     """A weighted combination of multiple loss functions."""
-
-#     def __init__(self, losses, weights, verbose=False):
-#         super().__init__()
-#         for loss in losses:
-#             self.append(loss if isinstance(loss, nn.Module) else Lambda(loss))
-#         self.weights = weights
-#         self.verbose = verbose
-
-#     def _print_losses(self, losses):
-#         for i, loss in enumerate(losses):
-#             print(f"({i}) {type(self[i]).__name__}: {loss.item()}")
-
-#     def forward(self, *args, **kwargs):
-#         losses = []
-#         for loss, weight in zip(self, self.weights):
-#             losses.append(loss(*args, **kwargs) * weight)
-#         if self.verbose:
-#             self._print_losses(losses)
-#         return sum(losses)
-
-
-# class TVLoss(nn.Module):
-#     """Total variation loss (Lp penalty on image gradient magnitude).
-
-#     The input must be 4D. If a target (second parameter) is passed in, it is
-#     ignored.
-
-#     ``p=1`` yields the vectorial total variation norm. It is a generalization
-#     of the originally proposed (isotropic) 2D total variation norm (see
-#     (see https://en.wikipedia.org/wiki/Total_variation_denoising) for color
-#     images. On images with a single channel it is equal to the 2D TV norm.
-
-#     ``p=2`` yields a variant that is often used for smoothing out noise in
-#     reconstructions of images from neural network feature maps (see Mahendran
-#     and Vevaldi, "Understanding Deep Image Representations by Inverting
-#     Them", https://arxiv.org/abs/1412.0035)
-
-#     :attr:`reduction` can be set to ``'mean'``, ``'sum'``, or ``'none'``
-#     similarly to the loss functions in :mod:`torch.nn`. The default is
-#     ``'mean'``.
-#     """
-
-#     def __init__(self, p, reduction="mean", eps=1e-8):
-#         super().__init__()
-#         if p not in {1, 2}:
-#             raise ValueError("p must be 1 or 2")
-#         if reduction not in {"mean", "sum", "none"}:
-#             raise ValueError("reduction must be 'mean', 'sum', or 'none'")
-#         self.p = p
-#         self.reduction = reduction
-#         self.eps = eps
-
-#     def forward(self, input, target=None):
-#         input = F.pad(input, (0, 1, 0, 1), "replicate")
-#         x_diff = input[..., :-1, :-1] - input[..., :-1, 1:]
-#         y_diff = input[..., :-1, :-1] - input[..., 1:, :-1]
-#         diff = x_diff**2 + y_diff**2
-#         if self.p == 1:
-#             diff = (diff + self.eps).mean(dim=1, keepdims=True).sqrt()
-#         if self.reduction == "mean":
-#             return diff.mean()
-#         if self.reduction == "sum":
-#             return diff.sum()
-#         return diff
-
-
-class VGGLoss(nn.Module):
-    """Computes the VGG perceptual loss between two batches of images.
-
-    The input and target must be 4D tensors with three channels
-    ``(B, 3, H, W)`` and must have equivalent shapes. Pixel values should be
-    normalized to the range 0–1.
-
-    The VGG perceptual loss is the mean squared difference between the features
-    computed for the input and target at layer :attr:`layer` (default 8, or
-    ``relu2_2``) of the pretrained model specified by :attr:`model` (either
-    ``'vgg16'`` (default) or ``'vgg19'``).
-
-    If :attr:`shift` is nonzero, a random shift of at most :attr:`shift`
-    pixels in both height and width will be applied to all images in the input
-    and target. The shift will only be applied when the loss function is in
-    training mode, and will not be applied if a precomputed feature map is
-    supplied as the target.
-
-    :attr:`reduction` can be set to ``'mean'``, ``'sum'``, or ``'none'``
-    similarly to the loss functions in :mod:`torch.nn`. The default is
-    ``'mean'``.
-    :meth:`get_features()` may be used to precompute the features for the
-    target, to speed up the case where inputs are compared against the same
-    target over and over. To use the precomputed features, pass them in as
-    :attr:`target` and set :attr:`target_is_features` to :code:`True`.
-
-    Instances of :class:`VGGLoss` must be manually converted to the same
-    device and dtype as their inputs.
-    """
-
-    models = {"vgg16": models.vgg16, "vgg19": models.vgg19}
-
-    def __init__(self, model="vgg16", layer=8, shift=0, reduction="mean"):
-        super().__init__()
-        self.shift = shift
-        self.reduction = reduction
-        self.normalize = transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
-        self.model = self.models[model](pretrained=True).features[: layer + 1]
-        self.model.eval()
-        self.model.requires_grad_(False)
-
-    def get_features(self, input):
-        return self.model(self.normalize(input))
-
-    def train(self, mode=True):
-        self.training = mode
-
-    def forward(self, input, target, target_is_features=False):
-        if target_is_features:
-            input_feats = self.get_features(input)
-            target_feats = target
-        else:
-            sep = input.shape[0]
-            batch = torch.cat([input, target])
-            if self.shift and self.training:
-                padded = F.pad(batch, [self.shift] * 4, mode="replicate")
-                batch = transforms.RandomCrop(batch.shape[2:])(padded)
-            feats = self.get_features(batch)
-            input_feats, target_feats = feats[:sep], feats[sep:]
-        return F.mse_loss(input_feats, target_feats, reduction=self.reduction)
-
-
-# Model definition
-
-
-class DoubleConv(nn.Module):
-    """(convolution => [BN] => ReLU) * 2"""
-
-    def __init__(self, in_channels, out_channels, mid_channels=None):
-        super().__init__()
-        if not mid_channels:
-            mid_channels = out_channels
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        return self.double_conv(x)
-
-
-class Down(nn.Module):
-    """Downscaling with maxpool then double conv"""
-
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2), DoubleConv(in_channels, out_channels)
-        )
-
-    def forward(self, x):
-        return self.maxpool_conv(x)
-
-
-class Up(nn.Module):
-    """Upscaling then double conv"""
-
-    def __init__(self, in_channels, out_channels, skip_channels):
-        super().__init__()
-        # for older models (ISVC and before), uncomment this portion and comment the other portion
-        # if bilinear, use the normal convolutions to reduce the number of channels
-        # self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
-        # self.conv = DoubleConv(
-        #     in_channels + skip_channels, out_channels, in_channels // 2
-        # )
-        # for newer models (randiv and after), uncomment this portion and comment the other portion
-        self.up = nn.ConvTranspose2d(
-            in_channels, in_channels // 2, kernel_size=2, stride=2
-        )
-        self.conv = DoubleConv(in_channels // 2 + skip_channels, out_channels)
-
-    def forward(self, x1, x2):
-        # x1: from previous layer in decoder
-        # x2: skip connection from encoder
-        x1 = self.up(x1)
-        # input is CHW
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
-
-        # Pad x1 to match x2's dimensions if necessary
-        # (padding_left, padding_right, padding_top, padding_bottom)
-        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
-
-        x = torch.cat([x2, x1], dim=1)
-        return self.conv(x)
-
-
-class OutConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(OutConv, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-
-    def forward(self, x):
-        return self.conv(x)
-
-
-class DeepUNet(nn.Module):
-    def __init__(self, n_channels_in, n_classes_out, start_filters=64):
-        super(DeepUNet, self).__init__()
-        self.n_channels_in = n_channels_in
-        self.n_classes_out = n_classes_out
-        self.start_filters = start_filters
-
-        # Encoder
-        self.inc = DoubleConv(n_channels_in, start_filters)
-        self.down1 = Down(start_filters, start_filters * 2)  # 608->304
-        self.down2 = Down(start_filters * 2, start_filters * 4)  # 304->152
-        self.down3 = Down(start_filters * 4, start_filters * 8)  # 152->76
-        self.down4 = Down(start_filters * 8, start_filters * 16)  # 76->38
-        self.down5 = Down(
-            start_filters * 16, start_filters * 32
-        )  # 38->19 (Bottleneck input)
-
-        # Decoder
-        # The 'in_channels' for Up is the number of channels from the layer below (e.g., bottleneck)
-        # The 'skip_channels' is the number of channels from the corresponding encoder layer
-        # The 'out_channels' is the target number of channels for this decoder stage
-        self.up1 = Up(
-            start_filters * 32, start_filters * 16, skip_channels=start_filters * 16
-        )  # 19->38
-        self.up2 = Up(
-            start_filters * 16, start_filters * 8, skip_channels=start_filters * 8
-        )  # 38->76
-        self.up3 = Up(
-            start_filters * 8, start_filters * 4, skip_channels=start_filters * 4
-        )  # 76->152
-        self.up4 = Up(
-            start_filters * 4, start_filters * 2, skip_channels=start_filters * 2
-        )  # 152->304
-        self.up5 = Up(
-            start_filters * 2, start_filters, skip_channels=start_filters
-        )  # 304->608
-
-        self.outc = OutConv(start_filters, n_classes_out)
-        self.final_activation = nn.Tanh()
-
-        # # Determine final activation
-        # if n_classes_out == 1:
-        #     self.final_activation = nn.Sigmoid()
-        # elif n_classes_out > 1:
-        #     self.final_activation = nn.Softmax(
-        #         dim=1
-        #     )  # Apply softmax over channel dimension
-        # else:  # Should not happen with positive n_classes_out
-        #     self.final_activation = None  # Linear activation
-
-    def forward(self, x):
-        # Encoder
-        s1 = self.inc(x)  # 608x608, sf
-        s2 = self.down1(s1)  # 304x304, sf*2
-        s3 = self.down2(s2)  # 152x152, sf*4
-        s4 = self.down3(s3)  # 76x76,   sf*8
-        s5 = self.down4(s4)  # 38x38,   sf*16
-        bottleneck = self.down5(s5)  # 19x19,   sf*32
-
-        # Decoder
-        d1 = self.up1(bottleneck, s5)  # 38x38, sf*16
-        d2 = self.up2(d1, s4)  # 76x76, sf*8
-        d3 = self.up3(d2, s3)  # 152x152, sf*4
-        d4 = self.up4(d3, s2)  # 304x304, sf*2
-        d5 = self.up5(d4, s1)  # 608x608, sf
-
-        logits = self.outc(d5)
-
-        if self.final_activation:
-            return self.final_activation(logits)
-        return logits
-
-
-class Four_Level_DeepUNet(nn.Module):
-    def __init__(self, n_channels_in, n_classes_out, start_filters=64):
-        super(Four_Level_DeepUNet, self).__init__()
-        self.n_channels_in = n_channels_in
-        self.n_classes_out = n_classes_out
-        self.start_filters = start_filters
-
-        # Encoder
-        self.inc = DoubleConv(n_channels_in, start_filters)
-        self.down1 = Down(start_filters, start_filters * 2)  # 608->304
-        self.down2 = Down(start_filters * 2, start_filters * 4)  # 304->152
-        self.down3 = Down(start_filters * 4, start_filters * 8)  # 152->76
-        self.down4 = Down(start_filters * 8, start_filters * 16)  # 76->38
-        # self.down5 = Down(
-        #     start_filters * 16, start_filters * 32
-        # )  # 38->19 (Bottleneck input)
-
-        # Decoder
-        # The 'in_channels' for Up is the number of channels from the layer below (e.g., bottleneck)
-        # The 'skip_channels' is the number of channels from the corresponding encoder layer
-        # The 'out_channels' is the target number of channels for this decoder stage
-        # self.up1 = Up(
-        #     start_filters * 32, start_filters * 16, skip_channels=start_filters * 16
-        # )  # 19->38
-        self.up2 = Up(
-            start_filters * 16, start_filters * 8, skip_channels=start_filters * 8
-        )  # 38->76
-        self.up3 = Up(
-            start_filters * 8, start_filters * 4, skip_channels=start_filters * 4
-        )  # 76->152
-        self.up4 = Up(
-            start_filters * 4, start_filters * 2, skip_channels=start_filters * 2
-        )  # 152->304
-        self.up5 = Up(
-            start_filters * 2, start_filters, skip_channels=start_filters
-        )  # 304->608
-
-        self.outc = OutConv(start_filters, n_classes_out)
-        self.final_activation = nn.Tanh()
-
-        # # Determine final activation
-        # if n_classes_out == 1:
-        #     self.final_activation = nn.Sigmoid()
-        # elif n_classes_out > 1:
-        #     self.final_activation = nn.Softmax(
-        #         dim=1
-        #     )  # Apply softmax over channel dimension
-        # else:  # Should not happen with positive n_classes_out
-        #     self.final_activation = None  # Linear activation
-
-    def forward(self, x):
-        # Encoder
-        s1 = self.inc(x)  # 608x608, sf
-        s2 = self.down1(s1)  # 304x304, sf*2
-        s3 = self.down2(s2)  # 152x152, sf*4
-        s4 = self.down3(s3)  # 76x76,   sf*8
-        # s5 = self.down4(s4)  # 38x38,   sf*16
-        bottleneck = self.down4(s4)  # 19x19,   sf*32
-
-        # Decoder
-        d1 = self.up2(bottleneck, s4)  # 38x38, sf*16
-        d2 = self.up3(d1, s3)  # 76x76, sf*8
-        d3 = self.up4(d2, s2)  # 152x152, sf*4
-        d4 = self.up5(d3, s1)  # 304x304, sf*2
-        # d5 = self.up5(d4, s1)  # 608x608, sf
-
-        logits = self.outc(d4)
-
-        if self.final_activation:
-            return self.final_activation(logits)
-        return logits
-
-
-class Six_Level_DeepUNet(nn.Module):
-    def __init__(self, n_channels_in, n_classes_out, start_filters=64):
-        super(Six_Level_DeepUNet, self).__init__()
-        self.n_channels_in = n_channels_in
-        self.n_classes_out = n_classes_out
-        self.start_filters = start_filters
-
-        # Encoder
-        self.inc = DoubleConv(n_channels_in, start_filters)
-        self.down1 = Down(start_filters, start_filters * 2)  # 608->304
-        self.down2 = Down(start_filters * 2, start_filters * 4)  # 304->152
-        self.down3 = Down(start_filters * 4, start_filters * 8)  # 152->76
-        self.down4 = Down(start_filters * 8, start_filters * 16)  # 76->38
-        self.down5 = Down(start_filters * 16, start_filters * 32)  # 38->19
-        self.down6 = Down(
-            start_filters * 32, start_filters * 64
-        )  # 19->9 (Bottleneck input)
-
-        # Decoder
-        # The 'in_channels' for Up is the number of channels from the layer below (e.g., bottleneck)
-        # The 'skip_channels' is the number of channels from the corresponding encoder layer
-        # The 'out_channels' is the target number of channels for this decoder stage
-        self.up0 = Up(
-            start_filters * 64, start_filters * 32, skip_channels=start_filters * 32
-        )  # 9->19
-        self.up1 = Up(
-            start_filters * 32, start_filters * 16, skip_channels=start_filters * 16
-        )  # 19->38
-        self.up2 = Up(
-            start_filters * 16, start_filters * 8, skip_channels=start_filters * 8
-        )  # 38->76
-        self.up3 = Up(
-            start_filters * 8, start_filters * 4, skip_channels=start_filters * 4
-        )  # 76->152
-        self.up4 = Up(
-            start_filters * 4, start_filters * 2, skip_channels=start_filters * 2
-        )  # 152->304
-        self.up5 = Up(
-            start_filters * 2, start_filters, skip_channels=start_filters
-        )  # 304->608
-
-        self.outc = OutConv(start_filters, n_classes_out)
-        self.final_activation = nn.Tanh()
-
-        # # Determine final activation
-        # if n_classes_out == 1:
-        #     self.final_activation = nn.Sigmoid()
-        # elif n_classes_out > 1:
-        #     self.final_activation = nn.Softmax(
-        #         dim=1
-        #     )  # Apply softmax over channel dimension
-        # else:  # Should not happen with positive n_classes_out
-        #     self.final_activation = None  # Linear activation
-
-    def forward(self, x):
-        # Encoder
-        s1 = self.inc(x)  # 608x608, sf
-        s2 = self.down1(s1)  # 304x304, sf*2
-        s3 = self.down2(s2)  # 152x152, sf*4
-        s4 = self.down3(s3)  # 76x76,   sf*8
-        s5 = self.down4(s4)  # 38x38,   sf*16
-        s6 = self.down5(s5)  # 19x19,   sf*32
-        bottleneck = self.down6(s6)  # 9x9,   sf*64
-
-        # Decoder
-        d0 = self.up0(bottleneck, s6)
-        d1 = self.up1(d0, s5)  # 38x38, sf*16
-        d2 = self.up2(d1, s4)  # 76x76, sf*8
-        d3 = self.up3(d2, s3)  # 152x152, sf*4
-        d4 = self.up4(d3, s2)  # 304x304, sf*2
-        d5 = self.up5(d4, s1)  # 608x608, sf
-
-        logits = self.outc(d5)
-
-        if self.final_activation:
-            return self.final_activation(logits)
-        return logits
 
 
 def train_model(
@@ -1112,25 +640,11 @@ def train_model(
 
     start_epoch = 0
 
-    match levels:
-        case 6:
-            model = Six_Level_DeepUNet(
-                n_channels_in=IMG_CHANNELS_IN,
-                n_classes_out=NUM_CLASSES_OUT,
-                start_filters=START_FILTERS,
-            )
-        case 4:
-            model = Four_Level_DeepUNet(
-                n_channels_in=IMG_CHANNELS_IN,
-                n_classes_out=NUM_CLASSES_OUT,
-                start_filters=START_FILTERS,
-            )
-        case _:
-            model = DeepUNet(
-                n_channels_in=IMG_CHANNELS_IN,
-                n_classes_out=NUM_CLASSES_OUT,
-                start_filters=START_FILTERS,
-            )
+    model = DeepUNet(
+        n_channels_in=IMG_CHANNELS_IN,
+        n_classes_out=NUM_CLASSES_OUT,
+        start_filters=START_FILTERS,
+    )
     if previous_model_path is None:
         print(
             f"Initialized DeepUNet with {levels} layers, {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
@@ -1211,13 +725,6 @@ def train_model(
 
     # training loop
     for epoch in range(start_epoch, num_epochs):
-        # optional: remake dataset for randomness
-        # allows to train with a smaller number of images for faster iteration
-        # train, valid = make_video_datasets(data_dir)
-        # train_dataloader, valid_dataloader = make_dataloaders(
-        #     train, valid, data_dir, clear_transform, cloud_transform
-        # )
-
         epoch_start_time = time.time()
         model.train()
         running_loss = 0.0
@@ -1231,10 +738,6 @@ def train_model(
             ), targets.to(
                 f"cuda:{settings.DEVICE_IDS[0]}" if settings.USE_DEVICE_IDS else device
             )
-
-            # show_tensor_image(inputs[0])
-            # show_tensor_image(targets[0])
-            # break
             optimizer.zero_grad()
 
             if scaler:  # AMP
@@ -1318,10 +821,6 @@ def train_model(
                     if settings.USE_DEVICE_IDS
                     else device
                 )
-                # show_tensor_image(inputs[0])
-                # show_tensor_image(targets[0])
-                # break
-
                 if scaler:  # AMP for validation
                     with torch.amp.autocast(
                         device_type="cuda" if torch.cuda.is_available() else "cpu"
@@ -1421,11 +920,6 @@ def train_model(
                 f"Reached a checkpoint. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
             )
 
-        # This actually worked on my RX 6800 XT, although it was because it cooled down the GPU,
-        # not because of VRAM usage
-        # print("Sleeping, hopefully to prevent vram overusage")
-        # time.sleep(1)
-
     print("\n--- Training Finished ---")
     print(f"Best Validation Loss: {best_val_loss:.4f}")
     print(f"Best model saved at: {settings.MODEL_SAVE_PATH}")
@@ -1443,7 +937,7 @@ if __name__ == "__main__":
         data_dir=os.path.join("png_split_training_images"),
         # previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
         debug=True,
-        levels=4,
+        levels=5,
     )
 
 #  LocalWords:  ROCm

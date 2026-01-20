@@ -5,12 +5,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models.optical_flow import raft_large, Raft_Large_Weights
 from torchvision.models import vgg19, VGG19_Weights
-import torch.utils.checkpoint as checkpoint
 import os
 import cv2
 import numpy as np
-from torch.utils.data import Dataset, DataLoader, dataloader
+from torch.utils.data import Dataset, DataLoader
 import time
+from raft import RAFT
+from smoother_model import DeflickerCNN
 
 # ulimit -n
 # > 1024
@@ -24,6 +25,7 @@ if not os.path.exists("local_settings.py"):
 else:
     import local_settings as settings
 
+
 class VideoDataset(Dataset):
     """Dataset for loading six(?) frames."""
     def __init__(self, files, height=608, width=608, window=5):
@@ -31,7 +33,7 @@ class VideoDataset(Dataset):
         self.height = height
         self.width = width
         self.samples = []
-        self.video_cache = [] 
+        self.video_cache = []
         self.window = window
 
         print("Pre-loading videos into RAM (This might take a moment)...")
@@ -41,14 +43,13 @@ class VideoDataset(Dataset):
             if not cap.isOpened():
                 print(f"Failed to open {vid_path}")
                 continue
-            
+
             # 1. Read all frames from this video
             video_frames = []
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
-                
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 video_frames.append(frame)
             cap.release()
@@ -64,11 +65,11 @@ class VideoDataset(Dataset):
             total_frames = len(video_frames)
             start_t = window // 2 + 1
             end_t = total_frames - window // 2 - 1
-            
+
             # The vid_idx now refers to the index in self.video_cache, 
             # not the original files list (in case some failed to open)
             cache_idx = len(self.video_cache) - 1
-            
+
             if end_t > start_t:
                 for t in range(start_t, end_t):
                     self.samples.append((cache_idx, t))
@@ -80,112 +81,32 @@ class VideoDataset(Dataset):
 
     def __getitem__(self, idx):
         cache_idx, t = self.samples[idx]
-        
+
         # Retrieve the full video tensor from RAM
         video_tensor = self.video_cache[cache_idx] # Shape: [Total_Frames, H, W, 3]
-        
+
         # Slice the 6 frames we need: [t-3 ... t+2]
         # (t-3) is the start index, we need 6 frames total
         padding = self.window // 2 + 1
         frames_uint8 = video_tensor[t-padding : t+padding] 
-        
+
         # Convert to float [0, 1] and permute to [6, 3, H, W]
         # This happens on the fly to save RAM storage
         frames = frames_uint8.permute(0, 3, 1, 2).float() / 255.0
-        
+
         # Window Prev (t-1): Indices 0-4
         window_prev = frames[0:self.window].reshape(-1, self.height, self.width)
-        
+
         # Window Curr (t): Indices 1-5
         window_curr = frames[1:self.window + 1].reshape(-1, self.height, self.width)
-        
+
         return window_curr, window_prev
-
-
-class ResidualBlock(nn.Module):
-    """
-    Residual Block: x + Conv(Relu(Conv(x)))
-    """
-    def __init__(self, channels):
-        super(ResidualBlock, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(channels)
-        )
-
-    def forward(self, x):
-        return x + self.conv(x)
-
-class DeflickerCNN(nn.Module):
-    """
-    Multi-frame Convolutional Network for Video Deflickering.
-    
-    Input: n RGB frames concatenated channel-wise (..., t-2, t-1, t, t+1, t+2, ...).
-           Shape: [Batch, input_frames * 3, Height, Width] (Designed for 608x608 inputs)
-    Output: 1 RGB frame (stabilized frame t).
-            Shape: [Batch, 3, Height, Width]
-
-    Args:
-        input_frames: Size of the window. Must be odd.
-        num_res_blocks: How many residual blocks to use
-        hidden_channels: How many convolution filters per res block
-        save_memory: False -> faster compute, but more VRAM; True -> slower compute, less VRAM
-            use False for testing, and True for training
-    """
-    def __init__(self, input_frames=5, num_res_blocks=8, hidden_channels=64, save_memory=False):
-        if input_frames % 2 == 0:
-            print(f"Error: input_frames must be odd, currently {input_frames}")
-            exit(-1)
-        super(DeflickerCNN, self).__init__()
-
-        self.save_memory = save_memory
-        self.input_frames = input_frames
-        
-        in_channels = input_frames * 3  # frames * 3 channels (R, G, B)       
-
-        # Initial Feature Extraction
-        self.head = nn.Sequential(
-            nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True)
-        )
-        
-        # Backbone: Stack of Residual Blocks
-        res_blocks = []
-        for _ in range(num_res_blocks):
-            res_blocks.append(ResidualBlock(hidden_channels))
-        self.body = nn.Sequential(*res_blocks)
-        
-        # Final Reconstruction
-        self.tail = nn.Conv2d(hidden_channels, 3, kernel_size=3, padding=1)
-
-        # force init weights to zero for reconstruction loss during training
-        nn.init.constant_(self.tail.weight, 0)
-        nn.init.constant_(self.tail.bias, 0)
-        
-    def forward(self, x):
-        features = self.head(x)
-
-        if self.save_memory:
-            for layer in self.body:
-                features = checkpoint.checkpoint(layer, features, use_reentrant=False)
-        else:
-            features = self.body(features)
-            
-        out = self.tail(features)
-        
-        start_channel = (self.input_frames // 2) * 3 # middle frame * (3 channels R,G,B)
-        input_t = x[:, start_channel : start_channel + 3, :, :]
-        
-        return torch.clamp(out + input_t, 0, 1)
 
 
 def warp_frame(frame, flow):
     """
     Warps a frame using optical flow.
-    
+
     Args:
         frame: [B, C, H, W] image
         flow: [B, 2, H, W] flow map (2 channels: dx, dy)
@@ -193,61 +114,35 @@ def warp_frame(frame, flow):
         warped_frame: [B, C, H, W]
     """
     B, C, H, W = frame.size()
-    
+
     # Create mesh grid
     xx = torch.arange(0, W).view(1, -1).repeat(H, 1)
     yy = torch.arange(0, H).view(-1, 1).repeat(1, W)
     xx = xx.view(1, 1, H, W).repeat(B, 1, 1, 1)
     yy = yy.view(1, 1, H, W).repeat(B, 1, 1, 1)
-    
+
     grid = torch.cat((xx, yy), 1).float()
-    
+
     grid = grid.to(frame.device)
-    
+
     vgrid = grid + flow
-    
+
     # Normalize grid to [-1, 1] for grid_sample
     vgrid[:, 0, :, :] = 2.0 * vgrid[:, 0, :, :] / max(W - 1, 1) - 1.0
     vgrid[:, 1, :, :] = 2.0 * vgrid[:, 1, :, :] / max(H - 1, 1) - 1.0
-    
+
     # Permute to [B, H, W, 2]
     vgrid = vgrid.permute(0, 2, 3, 1)
-    
+
     # Bilinear sampling
     warped = F.grid_sample(frame, vgrid, align_corners=True, padding_mode='border')
-    
+
     return warped
 
-class RAFT(nn.Module):
-    def __init__(self, device):
-        super(RAFT, self).__init__()
-        self.device = device
-        weights = Raft_Large_Weights.DEFAULT
-        self.model = raft_large(weights=weights, progress=False).to(device)
-        self.transforms = weights.transforms()
-
-        self.model.eval()
-        for param in self.model.parameters():
-            param.requires_grad = False
-
-    def forward(self, img1, img2):
-        with torch.no_grad():
-            img1_byte = (torch.clamp(img1, 0, 1) * 255).byte()
-            img2_byte = (torch.clamp(img2, 0, 1) * 255).byte()
-
-            img1_pre, img2_pre = self.transforms(img1_byte, img2_byte)
-
-            # 3. Run the model and get the flow
-            flow = self.model(img1_pre, img2_pre)[-1]
-            
-            # 4. Return the flow to the original device (so it matches output_prev later)
-            return flow
-            
 
 class DeflickerLoss(nn.Module):
-    """
-    Combined loss: Temporal Consistency + Reconstruction
-    """
+    """Combined loss: Temporal Consistency + Reconstruction"""
+
     def __init__(self, LAMBDA, device=""):
         super(DeflickerLoss, self).__init__()
         self.LAMBDAS = LAMBDA
@@ -299,7 +194,7 @@ class DeflickerLoss(nn.Module):
         rec_perc_loss = self.l1_loss(out_feat, in_feat)
         with torch.no_grad():
             warped_feat = self.vgg(warped_norm)
-        
+
         if occlusion_mask is not None:
             temp_diff = torch.abs(output_t - warped_prev) * occlusion_mask
             temp_loss = torch.mean(temp_diff)
@@ -312,12 +207,12 @@ class DeflickerLoss(nn.Module):
         else:
             temp_loss = self.l1_loss(output_t, warped_prev)
             temp_perc_loss = self.l1_loss(out_feat, warped_feat)
-            
+
         total_loss = (self.LAMBDAS.l1 * temp_loss) + \
             (self.LAMBDAS.rec * rec_loss) + \
             (self.LAMBDAS.l1_perc * temp_perc_loss.to(output_t.device)) + \
             (self.LAMBDAS.rec_perc * rec_perc_loss.to(output_t.device))
-        
+
         return LOSSES(total_loss, temp_loss, rec_loss, temp_perc_loss, rec_perc_loss)
 
 
@@ -351,12 +246,12 @@ def generate_circle_mask(height=608, width=608, radius=250, vertical_offset=15, 
     # In the PIL code provided, top = center_y - radius - vertical_offset. 
     # The mathematical center of that circle is (center_x, center_y - vertical_offset).
     center_y = (height // 2) - vertical_offset
-    
+
     y, x = torch.meshgrid(torch.arange(height, device=device), torch.arange(width, device=device), indexing='ij')
-    
+
     dist_sq = (x - center_x)**2 + (y - center_y)**2
     mask = (dist_sq <= radius**2).float()
-    
+
     return mask.view(1, 1, height, width)
 
 class LAMBDAS:
@@ -373,7 +268,7 @@ class LOSSES:
         self.rec_loss = rec
         self.temp_perc_loss = temp_perc
         self.rec_perc_loss = rec_perc
-    
+
 def main(
     data_dir=os.path.join("data", "images"),
     input_frames=3,
@@ -392,7 +287,7 @@ def main(
 
     if settings.USE_DEVICE_IDS:
         device = torch.device(f"cuda:{settings.DEVICE_IDS[0]}")
-    
+
 
     print("Initializing model")
     save_memory = True
@@ -413,20 +308,19 @@ def main(
     if previous_model_path and os.path.exists(previous_model_path):
         print(f"Peeking at {previous_model_path} for architecture...")
         temp_ckpt = torch.load(previous_model_path, map_location='cpu')
-        
+
         if 'num_res_blocks' in temp_ckpt:
             num_res_blocks = temp_ckpt['num_res_blocks']
         if 'hidden_channels' in temp_ckpt:
             hidden_channels = temp_ckpt['hidden_channels']
         if 'input_frames' in temp_ckpt:
             input_frames = temp_ckpt['input_frames']
-        
+
         del temp_ckpt
         print(f"Resuming with: Depth={num_res_blocks}, Width={hidden_channels}")
 
         print(f"Loading previous model from {previous_model_path}")
         start_epoch = load_checkpoint(model, optimizer, previous_model_path, device)
-
 
     print(f"Initializing RAFT on {device}")
     raft_model = RAFT(device)
@@ -548,12 +442,11 @@ def main(
 
         print(f"  Training finished in {(time.time() - start_time):4f}s | Total Loss: {validation_loss/len(valid_loader):.4f}") 
 
-
         avg_loss = running_loss / len(train_loader)
         avg_val = validation_loss / len(valid_loader)
         print(f"Epoch {epoch+1} Complete. \nAverage Loss: {avg_loss:.4f} | Average Validation Loss {avg_val:.4f}")
         print(f"Epoch duration: {time.time() - start_time:.2f}s")
- 
+
         if epoch % settings.EPOCH_SAVE_INTERVAL == 0:
             save_dict = {
                 'epoch': epoch,
@@ -569,6 +462,7 @@ def main(
                 os.path.join(settings.MODEL_SAVE_PATH, model_name),
             )
             print(f"Model saved to {settings.MODEL_SAVE_PATH}")
+
 
 if __name__ == "__main__":
     main(

@@ -75,7 +75,6 @@ from random import randint
 # import cv_composer
 
 
-
 def resource_path(relative_path):
     """Weirdness for trying to package, too much effort to remove.
 
@@ -101,7 +100,7 @@ def rmdir(directory):
 
 
 def response_loop(initial_message, options=["y", "n"]):
-    """Takes an initial message and returns a "y" or a "n" in a do while loop.
+    """Take an initial message and returns a "y" or a "n" in a do while loop.
 
     Args:
         initial_message (str): The initial message to be printed. If None, print nothing.
@@ -134,6 +133,7 @@ def main(
     # Smart? Probably not, it hurts my C brain
     # Does it work? Yes.
 ):
+    """Do the thing."""
     # print title
     f = open(resource_path("title.txt"), "r")
     title = f.read()
@@ -150,7 +150,6 @@ def main(
     console.print("*" * 50)
     console.print()
 
-    # get video path
     video_path = ""
     if arg_input:
         video_path = arg_input
@@ -230,50 +229,26 @@ def main(
 
     filter_video_in_a_pipeline(model_path, video_path, save_path, device)
 
-# def filter_video(model_path, video_path, save_path, device):
-#     # Make temporary directories
-#     start_time = time.time()
-#     tmp = resource_path("tmp")
-#     tmp_original_images = resource_path(os.path.join("tmp", "original_images"))
-#     tmp_filtered_images = resource_path(os.path.join("tmp", "filtered_images"))
-#     if os.path.exists(tmp):
-#         console.print("Warning: tmp directory exists. Removing . . .", style="yellow")
-#         rmdir(tmp)
-#     os.makedirs(tmp)
-#     os.makedirs(tmp_original_images)
-#     os.makedirs(tmp_filtered_images)
-#     console.print("Converting the video into images . . .", style="green")
-#     # ffmpeg_wrapper.convert_to_images(video_path, tmp_original_images)
-#     fps = cv_composer.decompose_video(video_path, tmp_original_images, verbose=False)
 
-#     # print(f"FPS: {fps}")
+def filter_video_in_a_pipeline(
+    model_path: str,
+    video_path: str,
+    save_path: str,
+    device: str
+) -> int:
+    """Filter a video but good.
 
-#     model = test.load_model(model_path, verbose=debug, device=device)
-#     console.print("Upscaling images . . .", style="green")
-#     for image in track(os.listdir(tmp_original_images), description="Processing video . . ."):
-#         image_path = os.path.join(tmp_original_images, image)
-#         filtered_image = test.test(
-#             image_path=image_path, preloaded_model=model, verbose=debug, device=device
-#         )
-#         match = re.match(r"(\w+)_(\d+)\.png", image)
-#         # print(match.group(2))
-#         save_name = f"filtered_{match.group(2)}.png"
-#         # print(save_name)
-#         filtered_image.save(os.path.join(tmp_filtered_images, save_name))
+    Args:
+        model_path (str): Path to the model to use.
+        video_path (str): Path to the video to filter.
+        save_path (str): Path to save the filtered video to.
+        device (str): device to use (e.g. "cuda:0" or "cuda" or "cpu").
 
-#     console.print("Putting images back together . . .", style="green")
-#     # constructor.convert_directory(input_dir=tmp_filtered_images, output_name=save_path)
-#     cv_composer.compose_video(tmp_filtered_images, save_path, fps=fps, verbose=debug)
-
-#     if remove_tmp:
-#         console.print("Cleaning up . . .", style="green")
-#         rmdir(tmp)
-
-#     console.print(
-#         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
-#     )
-
-def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
+    Returns:
+        0 if all good
+        1 if debug complete
+        2 if error
+    """
     start_time = time.time()
 
     cap = cv2.VideoCapture(video_path)
@@ -287,7 +262,6 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     model = test.load_model(model_path, verbose=args.verbose, device=device)
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
 
     alpha_image = make_alpha_image(
         blend_strength=BLEND_STRENGTH,
@@ -306,8 +280,8 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
 
     fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
 
-
-    for i in track(range(total_frames), description=f"[green]Processing video {video_path}. . .[/green]"):
+    for i in track(range(total_frames),
+                   description=f"[green]Processing video {video_path}. . .[/green]"):
         loop_start_time = time.time()
         ret, frame = cap.read()
         if not ret:
@@ -347,7 +321,8 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
         if debug:
             print(f"Time to complete a loop: {time.time() - loop_start_time}")
             image_pil.show()
-            break
+            print("Debug complete!")
+            return 1
 
     cap.release()
     out.release()
@@ -355,11 +330,12 @@ def filter_video_in_a_pipeline(model_path, video_path, save_path, device):
     console.print(
         f"Done! Finished in {(time.time()-start_time):.2f} seconds.", style="green"
     )
-    return 1
+    return 0
+
 
 if __name__ == "__main__":
     if not args.device:
-        args.device="cuda" if torch.cuda.is_available() else "cpu"
+        args.device = "cuda" if torch.cuda.is_available() else "cpu"
     output = args.output
     temp = "tmp/tmp_filtered.mp4"
 

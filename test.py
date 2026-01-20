@@ -57,7 +57,8 @@ else:
 # generated from google gemini 2.5 pro based off my code
 # that llm is actually smart
 
-from network import DeepUNet, RandomApplyTransforms
+from network import RandomApplyTransforms
+from unet_model import DeepUNet
 
 def load_model(
     model_load_path=os.path.join("models", "64_checkpoint_best.pth"),
@@ -72,7 +73,7 @@ def load_model(
         verbose (bool): Prints helpful information if True.
 
     Returns:
-        network.DeepUNet().to(device) in evaluation mode.
+        DeepUNet().to(device) in evaluation mode.
     """
 
     if verbose:
@@ -92,15 +93,11 @@ def load_model(
         print(
             "Attempting to use defaults (3, 3, 64) but this may fail or be incorrect."
         )
-        # Fallback, but ideally the checkpoint should always have these
         n_channels_in = n_channels_in if n_channels_in is not None else 3
         n_classes_out = n_classes_out if n_classes_out is not None else 3
         start_filters = start_filters if start_filters is not None else 64
 
-    # Instantiate the model with loaded hyperparameters
-    # Ensure DeepUNet is defined/imported correctly
-    # from network import DeepUNet # Or however you access your model class
-    model = DeepUNet(  # Make sure DeepUNet is correctly imported/defined
+    model = DeepUNet(  
         n_channels_in=n_channels_in,
         n_classes_out=n_classes_out,
         start_filters=start_filters,
@@ -250,6 +247,7 @@ def test_with_ram(
     image=None,
     image_size_trained=settings.IMAGE_SIZE,
     preloaded_model=None,
+    model_load_path="",
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     verbose=True,
     fake_clouds=None,
@@ -267,13 +265,6 @@ def test_with_ram(
         PIL.Image.Image if successful.
         -1 if something went wrong.
     """
-
-    # model = DeepUNet(  # make sure deepunet is correctly imported/defined
-    #     n_channels_in=3,
-    #     n_classes_out=3,
-    #     start_filters=32,
-    # )
-
     start_time = time.time()
     if not preloaded_model:
         model = load_model(
@@ -307,10 +298,8 @@ def test_with_ram(
         print(f"Time to overlay clouds: {time.time() - start_time}")
         image.show()
 
-
     preprocess = T.Compose(
         [
-
             T.Resize(image_size_trained),  # Use the size the model was trained on
             T.ToTensor(),  # Converts PIL image [0,255] to tensor [0,1]
             # RandomApplyTransforms(
@@ -378,7 +367,16 @@ def test_with_ram(
 
     return output_image
 
-def save_test(model_load_path=None, image_path=None, save_path=None, blend_strength=None, iterations=1, device=None):
+
+def save_test(
+    model_load_path=None,
+    image_path=None,
+    save_path=None,
+    blend_strength=None,
+    iterations=1,
+    device=None
+):
+    """Save testing model_load_path with image_path to save_path."""
     if not save_path:
         print("Error: no save path specified.")
         return -1

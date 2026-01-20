@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
 from smoother import (
-    DeflickerCNN,
     load_checkpoint,
     DeflickerLoss,
     RAFT,
     generate_circle_mask,
     LAMBDAS,
-    LOSSES,
 )
+from smoother_model import DeflickerCNN
 
 import os
 if not os.path.exists("local_settings.py"):
