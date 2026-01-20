@@ -1,7 +1,7 @@
 """U-Net Architecture."""
 import torch
 import torch.nn as nn
-import torch.nn.functional as F  # Needed for GELU in TransformerEncoderLayer
+import torch.nn.functional as F
 
 
 class DoubleConv(nn.Module):
@@ -25,7 +25,7 @@ class DoubleConv(nn.Module):
 
 
 class Down(nn.Module):
-    """Downscaling with maxpool then double conv"""
+    """Downscaling with maxpool then double conv."""
 
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -38,7 +38,7 @@ class Down(nn.Module):
 
 
 class Up(nn.Module):
-    """Upscaling then double conv"""
+    """Upscaling then double conv."""
 
     def __init__(self, in_channels, out_channels, skip_channels):
         super().__init__()

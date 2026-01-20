@@ -1,7 +1,13 @@
+"""VGG Loss."""
+import torch
+from torch import nn
+from torch.nn import functional as F
+from torchvision import models, transforms
+
 
 # VGG loss, implemented on https://github.com/crowsonkb/vgg_loss?tab=readme-ov-file
 # It's under an MIT License, soooooo yeah this should be good to yoink
-# @TODO: refactor this to a new file
+# I don't care about most of this code.
 
 
 # class Lambda(nn.Module):
