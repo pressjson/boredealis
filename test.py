@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import time
+
 import torch
 import torchvision.transforms.functional as TF
 from PIL import Image
 import torchvision.transforms as T
 import torchvision.transforms.v2 as T2
-from network import get_random_valid_coords, crop_to_center_circle, colorize_array
+
+from cloud_transform import RandomApplyTransforms
+from model_utils import get_model_names, load_model
 
 if not os.path.exists("local_settings.py"):
     # print("Warning: local settings not found. Using default settings.")
@@ -57,81 +61,6 @@ else:
 # generated from google gemini 2.5 pro based off my code
 # that llm is actually smart
 
-from network import RandomApplyTransforms
-from unet_model import DeepUNet
-
-def load_model(
-    model_load_path=os.path.join("models", "64_checkpoint_best.pth"),
-    device="cuda" if torch.cuda.is_available() else "cpu",
-    verbose=True,
-):
-    """Loads a model, and returns it.
-
-    Args:
-        model_load_path (str): Path to the models to be loaded.
-        device (str): Device to load the model on to, defaults to default device.
-        verbose (bool): Prints helpful information if True.
-
-    Returns:
-        DeepUNet().to(device) in evaluation mode.
-    """
-
-    if verbose:
-        print(f"Loading checkpoint from: {model_load_path}")
-    # map_location ensures model loads correctly even if saved on GPU and loading on CPU
-    checkpoint = torch.load(model_load_path, map_location=device)
-
-    # Extract model hyperparameters from the checkpoint
-    start_filters = checkpoint.get("start_filters")
-    n_channels_in = checkpoint.get("in_channels")
-    n_classes_out = checkpoint.get("out_channels")
-
-    if None in [start_filters, n_channels_in, n_classes_out]:
-        print(
-            "Error: Checkpoint does not contain necessary model hyperparameters (start_filters, in_channels, out_channels)."
-        )
-        print(
-            "Attempting to use defaults (3, 3, 64) but this may fail or be incorrect."
-        )
-        n_channels_in = n_channels_in if n_channels_in is not None else 3
-        n_classes_out = n_classes_out if n_classes_out is not None else 3
-        start_filters = start_filters if start_filters is not None else 64
-
-    model = DeepUNet(  
-        n_channels_in=n_channels_in,
-        n_classes_out=n_classes_out,
-        start_filters=start_filters,
-    )
-    if verbose:
-        print(
-            f"Instantiated model with: in_channels={n_channels_in}, out_channels={n_classes_out}, start_filters={start_filters}"
-        )
-
-    # Handle DataParallel state_dict keys
-    # If the model was saved with nn.DataParallel, keys will have 'module.' prefix.
-    # We need to remove this prefix if we are not using nn.DataParallel during inference.
-    state_dict = checkpoint["model_state_dict"]
-    from collections import OrderedDict
-
-    new_state_dict = OrderedDict()
-    is_data_parallel = any(key.startswith("module.") for key in state_dict.keys())
-
-    if is_data_parallel:
-        if verbose:
-            print("Adjusting keys from DataParallel model.")
-        for k, v in state_dict.items():
-            name = k[7:] if k.startswith("module.") else k  # remove `module.`
-            new_state_dict[name] = v
-        model.load_state_dict(new_state_dict)
-    else:
-        model.load_state_dict(state_dict)
-    if verbose:
-        print(f"Model was trained to epoch {checkpoint['epoch']}.")
-
-    model = model.to(device)
-    model.eval()  # Set model to evaluation mode
-    return model
-
 
 # @TODO: refactor this crap
 
@@ -144,6 +73,7 @@ def test(
     verbose=True,
     blend_strength=0.3,
     iterations=1,
+    model_name=None,
 ) -> Image.Image:
     """Tests the model and returns a PIL Image.
 
@@ -157,15 +87,12 @@ def test(
         -1 if something went wrong.
     """
 
-    model = DeepUNet(  # Make sure DeepUNet is correctly imported/defined
-        n_channels_in=3,
-        n_classes_out=3,
-        start_filters=32,
-    )
-
     if not preloaded_model:
         model = load_model(
-            model_load_path=model_load_path, device=device, verbose=verbose
+            model_load_path=model_load_path,
+            device=device,
+            verbose=verbose,
+            model_name=model_name,
         )
     else:
         model = preloaded_model
@@ -374,17 +301,45 @@ def save_test(
     save_path=None,
     blend_strength=None,
     iterations=1,
-    device=None
+    device=None,
+    model_name=None,
 ):
     """Save testing model_load_path with image_path to save_path."""
     if not save_path:
         print("Error: no save path specified.")
         return -1
-    test(model_load_path=model_load_path, image_path=image_path, blend_strength=blend_strength, iterations=iterations, device=device).save(save_path)
+    test(
+        model_load_path=model_load_path,
+        image_path=image_path,
+        blend_strength=blend_strength,
+        iterations=iterations,
+        device=device,
+        model_name=model_name,
+    ).save(save_path)
 
 
 if __name__ == "__main__":
-    test(
-        model_load_path=os.path.join("testing_models", "randiv_96_checkpoint_best.pth"),
-        image_path=os.path.join("readme_images", "clouds.png"),
-    ).show()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default=os.path.join("testing_models", "randiv_96_checkpoint_best.pth"))
+    parser.add_argument("--image", default=os.path.join("readme_images", "clouds.png"))
+    parser.add_argument("--output", default="")
+    parser.add_argument("--model-name", choices=get_model_names())
+    parser.add_argument("--blend-strength", type=float, default=0.3)
+    parser.add_argument("--iterations", type=int, default=1)
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--quiet", action="store_true")
+    args = parser.parse_args()
+
+    output_image = test(
+        model_load_path=args.model,
+        image_path=args.image,
+        device=args.device,
+        verbose=not args.quiet,
+        blend_strength=args.blend_strength,
+        iterations=args.iterations,
+        model_name=args.model_name,
+    )
+    if args.output:
+        output_image.save(args.output)
+    else:
+        output_image.show()

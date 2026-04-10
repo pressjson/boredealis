@@ -80,7 +80,7 @@ class OutConv(nn.Module):
 
 
 class DeepUNet(nn.Module):
-    def __init__(self, n_channels_in, n_classes_out, start_filters=64):
+    def __init__(self, n_channels_in, n_classes_out, start_filters=96):
         super(DeepUNet, self).__init__()
         self.n_channels_in = n_channels_in
         self.n_classes_out = n_classes_out

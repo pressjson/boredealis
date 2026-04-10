@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-"""Batch filter an entire directory of videos using all of the GPUs specified in SETTINGS.
+"""
+Batch filter an entire directory of videos using all of the GPUs specified.
 
-I could do this in bash, but multithreading . . ."""
+I could do this in bash, but multithreading . . .
+"""
 
 import os
 if not os.path.exists("local_settings.py"):
@@ -12,10 +14,13 @@ else:
     import local_settings as settings
 
 import argparse
+from model_utils import get_model_names
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", help="path to model", default="")
-parser.add_argument("--input", help="input path (include extension)", default="")
-parser.add_argument("--output", help="output path (include extension)", default="")
+parser.add_argument("--model-name", help="override checkpoint model architecture", choices=get_model_names())
+parser.add_argument("--input", help="input path", default="")
+parser.add_argument("--output", help="output path", default="")
 parser.add_argument("--vids-per-device", "-V", default=1)
 parser.add_argument("--ext", default=".mp4")
 parser.add_argument("--filter", default=True, action=argparse.BooleanOptionalAction,
@@ -28,6 +33,7 @@ parser.add_argument("--device", nargs="*", default=settings.DEVICE_IDS if settin
 INPUT_DIR = args.input
 OUTPUT_DIR = args.output
 MODEL_PATH = args.model
+MODEL_NAME = args.model_name
 VIDS_PER_DEVICE = int(args.vids_per_device)
 FILTER = args.filter
 EXT = args.ext
@@ -69,6 +75,8 @@ class ARGS:
             "--output", self.output_path,
             "--model", self.MODEL_PATH,
         ]
+        if MODEL_NAME:
+            cmd += ["--model-name", MODEL_NAME]
         if len(self.OTHERS) > 0:
             cmd = cmd + [arg for arg in self.OTHERS]
         # if self.device:

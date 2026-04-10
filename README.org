@@ -3,6 +3,21 @@
 
 Using machine learning to remove clouds from a video of the Aurora Borealis.
 
+* Different Model Architectures
+
+I have this up top because I'm a lame bozo who wants to have this important section up top. Eventually it will go down below.
+
+I am now trying a variety of different architectures instead of just the U-Net. You can find the complete list in [[file:models/][the models section]]. But for now, here are the rankings for each model I've tested and trained.
+
+** The Actually Good Models
+
+1. U-Net (~DeepUNet~). The OG King.
+2. U-Net Plus Plus (~unetpp~). The OG King++, but sometimes C is better than C++.
+
+** The Abominations
+
+1. EDSR. It does not like this pipeline.
+
 * Methodology
 
 @TODO:

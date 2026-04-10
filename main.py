@@ -4,13 +4,15 @@ import sys
 from rich.console import Console
 import argparse
 
+from model_utils import get_model_names, load_model
+
 console = Console()
 
 # File arguments
 # Up here to make -h and -v snappy
 
 # MAGIC NUMBERS
-# @TODO: tune this parameter
+# @TODO: tune these parameters
 PATIENCE = 10
 BOUNDS_RECALCULATION = 100
 VALID_EXTENSIONS = [".avi", ".mp4", ".mov"]
@@ -19,20 +21,46 @@ VALID_MODEL_SIZES = ["96", "128"]
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", "-m", help="path to model", default="")
+parser.add_argument("--model-name", help="override checkpoint model architecture", choices=get_model_names())
 parser.add_argument("--input", "-i", help="input path (include extension)", default="")
 parser.add_argument("--output", "-o", help="output path (include extension)", default="")
 parser.add_argument("--debug", "-d", help="enable debug", action='store_true')
 parser.add_argument("--verbose", "-V", help="enable verbose")
 parser.add_argument("--version", "-v", action='version', version='No versions yet, but this is prerelease')
-parser.add_argument("--iterations", "-I", help="run the model ITERATIONS times, default 1", default=1)
-parser.add_argument("--blend", help="the amount of alpha to use \"DDPM\" with, default 0.0", default=0.0)
+parser.add_argument("--iterations", "-I", help="run the model ITERATIONS times, default 1", default=1, type=int)
+parser.add_argument("--blend", help="the amount of alpha to use \"DDPM\" with, default 0.0", default=0.0, type=float)
 parser.add_argument("--device", help="use custom device DEVICE", default="")
 parser.add_argument("--smoother", "-s", help="path to smoother model; if none, no smoothing", default="")
 args = parser.parse_args()
 
+from rich.progress import track
+import os
+# import re
+import time
+import torch
+from PIL import Image
+import numpy
+import cv2
+
+# These are the slow ones to import
+
+# import ffmpeg_wrapper
+import test
+from cloud_transform import (
+    generate_perlin_noise_map,
+    make_alpha_image,
+    crop_to_center_circle,
+    get_random_valid_coords,
+    colorize_array,
+)
+from random import randint
+# import constructor
+# import cv_composer
+
 arg_input = args.input
 arg_output = args.output
 arg_custom_model_path = args.model
+arg_model_name = args.model_name
 iterations = args.iterations
 BLEND_STRENGTH = args.blend
 debug = args.debug
@@ -49,30 +77,6 @@ if not (0.0 <= BLEND_STRENGTH and BLEND_STRENGTH <= 1.0):
     BLEND_STRENGTH = min(1.0, BLEND_STRENGTH)
     BLEND_STRENGTH = max(0.0, BLEND_STRENGTH)
     console.print(f"Blend strength is now {BLEND_STRENGTH}")
-
-from rich.progress import track
-import os
-# import re
-import time
-import torch
-from PIL import Image
-import numpy
-import cv2
-
-# These are the slow ones to import
-
-# import ffmpeg_wrapper
-import test
-from network import (
-    generate_perlin_noise_map,
-    make_alpha_image,
-    crop_to_center_circle,
-    get_random_valid_coords,
-    colorize_array,
-)
-from random import randint
-# import constructor
-# import cv_composer
 
 
 def resource_path(relative_path):
@@ -234,7 +238,8 @@ def filter_video_in_a_pipeline(
     model_path: str,
     video_path: str,
     save_path: str,
-    device: str
+    device: str,
+    model_name: str | None = None,
 ) -> int:
     """Filter a video but good.
 
@@ -259,7 +264,12 @@ def filter_video_in_a_pipeline(
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(save_path, fourcc, fps, (width, height))
 
-    model = test.load_model(model_path, verbose=args.verbose, device=device)
+    model = load_model(
+        model_path,
+        verbose=args.verbose,
+        device=device,
+        model_name=model_name,
+    )
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
@@ -352,6 +362,7 @@ if __name__ == "__main__":
             video_path=args.input,
             save_path=args.output,
             device=args.device,
+            model_name=args.model_name,
         )
     else:
         main(device=args.device)

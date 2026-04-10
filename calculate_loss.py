@@ -11,6 +11,8 @@ from ignite.metrics import *
 import os
 import time
 
+from model_utils import load_model
+
 
 def calculate_loss(ground_truth_path, clouded_image_path, model_path):
     ground_truth = Image.open(ground_truth_path).convert("RGB")
@@ -22,7 +24,7 @@ def calculate_loss(ground_truth_path, clouded_image_path, model_path):
     # clouded_image = (clouded_image + 1.0) / 2
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = test.load_model(model_path, device)
+    model = load_model(model_path, device=device)
     vgg_loss = network.VGGLoss().to(device)
 
     start_time = time.time()

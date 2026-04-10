@@ -1,18 +1,19 @@
 """Train the U-Net."""
+import argparse
 import os
 from collections import OrderedDict
 import time
-import random
 import numpy
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 import torch.nn as nn
+from torch.cuda.amp import GradScaler, autocast
 import torchvision.transforms.functional as TF
 from torchvision import transforms
 import torch.optim as optim
-from PIL import Image, ImageDraw, ImageFilter
-import noise
-from unet_model import DeepUNet
+from cloud_transform import RandomApplyTransforms
+from image_datasets import ImageDataset, make_video_datasets
+from model_utils import build_model, get_model_default_start_filters, get_model_names
 from vgg_loss import VGGLoss
 
 if not os.path.exists("local_settings.py"):
@@ -25,69 +26,15 @@ else:
 #        but i don't want to
 
 
-class ImageDataset(Dataset):
-    def __init__(
-        self,
-        images=None,
-        data_dir=None,
-        clear_transform=None,
-        cloud_transform=None,
-    ):
-        self.images = images
-        self.data_dir = data_dir
-        self.clear_transform = clear_transform
-        self.cloud_transform = cloud_transform
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, i):
-        image = Image.open(os.path.join(self.data_dir, self.images[i])).convert("RGB")
-        if self.clear_transform:
-            cloud_image = self.cloud_transform(image)
-            clear_image = self.clear_transform(image)
-        return cloud_image, clear_image
-
-
-def make_video_datasets(data_dir):
-    videos = []
-    for video_path in os.listdir(data_dir):
-        videos.append(video_path)
-
-    random.shuffle(videos)
-
-    train_videos = videos[: int(settings.VALUE_SPLIT * len(videos))]
-    valid_videos = videos[int(settings.VALUE_SPLIT * len(videos)) :]
-
-    train = []
-    valid = []
-    for video in train_videos:
-        video_path = os.path.join(data_dir, video)
-        # if debug:
-        #     print(video)
-        for image in os.listdir(video_path):
-            image = os.path.join(video, image)
-            train.append(image)
-
-    for video in valid_videos:
-        video_path = os.path.join(data_dir, video)
-        for image in os.listdir(video_path):
-            image = os.path.join(video, image)
-            # if debug:
-            #     print(image)
-            valid.append(image)
-
-    random.shuffle(train)
-    random.shuffle(valid)
-
-    if settings.NUM_IMAGES != -1:
-        train = train[: int(settings.NUM_IMAGES * settings.VALUE_SPLIT)]
-        valid = valid[: int(settings.NUM_IMAGES * (1 - settings.VALUE_SPLIT))]
-
-    return train, valid
-
-
-def make_dataloaders(train, valid, data_dir, clear_transform, cloud_transform):
+def make_dataloaders(
+    train,
+    valid,
+    data_dir,
+    clear_transform,
+    cloud_transform,
+    batch_size=settings.BATCH_SIZE,
+    num_workers=settings.NUM_WORKERS,
+):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_dataset = ImageDataset(
         train,
@@ -104,15 +51,15 @@ def make_dataloaders(train, valid, data_dir, clear_transform, cloud_transform):
 
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=settings.BATCH_SIZE,
-        num_workers=settings.NUM_WORKERS,
+        batch_size=batch_size,
+        num_workers=num_workers,
         shuffle=True,
         pin_memory=(device.type == "cuda"),
     )
     valid_dataloader = DataLoader(
         valid_dataset,
-        batch_size=settings.BATCH_SIZE,
-        num_workers=settings.NUM_WORKERS,
+        batch_size=batch_size,
+        num_workers=num_workers,
         shuffle=True,
         pin_memory=(device.type == "cuda"),
     )
@@ -134,298 +81,64 @@ def hex_to_rgb(hex):
     return tuple(int(hex[i : i + 2], 16) for i in (0, 2, 4))
 
 
-def generate_perlin_noise_map(
-    size,
-    scale=None,
-    octaves=None,
-    persistence=None,
-    lacunarity=None,
-    iterations=1,
-    weight=1.0,
-):
-    """Generate a Perlin noise map of size (size, size).
+def parse_device_arg(device_arg):
+    if device_arg is None:
+        return None
 
-    Args:
-        size (int): The size of the final array.
-        iterations (int): The number of iterations to do. 1 = Perlin noise, more = fBm
-        weight (float): The initial weight of layer 1. Each subsequent layer = weight / 2
-        everything else: Perlin noise hyperparameters.
+    requested_device = device_arg.strip().lower()
+    if requested_device in {"cpu", "cuda"}:
+        return requested_device
 
-    Returns:
-        A 2d array of the world between 0 and 1.
-    """
-    world = numpy.zeros((size, size))
-    if iterations < 1:
-        return world
-    if scale is None:
-        scale = random.uniform(100.0, 400.0)
-    if octaves is None:
-        octaves = random.randint(2, 5)
-    if persistence is None:
-        persistence = random.uniform(0.3, 0.6)
-    if lacunarity is None:
-        lacunarity = random.uniform(1.8, 4)
+    device_ids = [int(device_id.strip()) for device_id in requested_device.split(",") if device_id.strip()]
+    if not device_ids:
+        raise ValueError("--device must be 'cpu', 'cuda', or a comma-separated list of CUDA device ids.")
 
-    noise_base = random.randint(1, 10000)
-    for x in range(size):
-        for y in range(size):
-            world[x][y] = noise.pnoise2(
-                x / scale,
-                y / scale,
-                octaves=octaves,
-                persistence=persistence,
-                lacunarity=lacunarity,
-                repeatx=size / scale,
-                repeaty=size / scale,
-                base=noise_base,
-            )
-
-    min_val = numpy.min(world)
-    max_val = numpy.max(world)
-
-    normalized_world = weight * (world - min_val) / (max_val - min_val)
-    # some simple recursive programming. sorry nasa
-    normalized_world = weight * normalized_world + generate_perlin_noise_map(
-        size,
-        iterations=(iterations - 1),
-        weight=(weight / 2),
-    )
-
-    return numpy.clip(normalized_world, 0, 1)
+    return device_ids
 
 
-def colorize_array(normalized_world, lower_bound, upper_bound):
-    """Makes a color image with a world, lower_bound, and upper_bound
+def resolve_training_devices(device_arg):
+    parsed_device = parse_device_arg(device_arg)
+    if parsed_device is None:
+        if settings.USE_DEVICE_IDS:
+            device_ids = list(settings.DEVICE_IDS)
+            return torch.device(f"cuda:{device_ids[0]}"), device_ids
+        default_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        return default_device, None
 
-    Args:
-        normalized_world (arr): A world between 0 and 1.
-        lower_bound (tuple): The lower bound.
-        upper_bound (tuple): The upper bound.
+    if parsed_device == "cpu":
+        return torch.device("cpu"), None
 
-    Returns:
-        PIL.Image.Image from the interpolated world
-    """
-    size = normalized_world.shape[0]
-    r_low, g_low, b_low = lower_bound
-    r_up, g_up, b_up = upper_bound
+    if parsed_device == "cuda":
+        if not torch.cuda.is_available():
+            raise ValueError("CUDA requested but not available.")
+        return torch.device("cuda"), None
 
-    pixels = numpy.zeros((size, size, 3), dtype=numpy.uint8)
+    if not torch.cuda.is_available():
+        raise ValueError("CUDA device ids were requested but CUDA is not available.")
 
-    for x in range(size):
-        for y in range(size):
-            noise_val_norm = normalized_world[x][y]
-
-            # Linearly interpolate each color channel
-            r = int(r_low + abs(r_up - r_low) * noise_val_norm)
-            g = int(g_low + abs(g_up - g_low) * noise_val_norm)
-            b = int(b_low + abs(b_up - b_low) * noise_val_norm)
-
-            r = max(0, min(255, r))
-            g = max(0, min(255, g))
-            b = max(0, min(255, b))
-
-            pixels[x, y] = (r, g, b)
-
-    return Image.fromarray(pixels)
+    return torch.device(f"cuda:{parsed_device[0]}"), parsed_device
 
 
-def draw_center_circle(
-    radius=250,
-    vertical_offset=15,
-    size=settings.IMAGE_SIZE
-):
-    """Draw the center circle."""
-    width, height = settings.IMAGE_SIZE
-    radius = 250
-    vertical_offset = 15
-    # Create a mask:
-    # Start with a completely black (transparent) mask
-    mask = Image.new("L", size, 0)  # 'L' mode for grayscale mask
-    draw = ImageDraw.Draw(mask)
-
-    # Calculate the bounding box for the circle
-    # The center of the image is (width/2, height/2)
-    center_x = width // 2
-    center_y = height // 2
-
-    # Bounding box coordinates (left, top, right, bottom)
-    left = center_x - radius
-    top = center_y - radius - vertical_offset
-    right = center_x + radius
-    bottom = center_y + radius - vertical_offset
-
-    # Draw a white (opaque) circle on the black mask
-    draw.ellipse((left, top, right, bottom), fill=255)  # 255 is white in 'L' mode
-
-    return mask
-
-
-def crop_to_center_circle(pil_image: Image.Image) -> Image.Image:
-    """
-    Takes a PIL image of 608x608 and keeps only a center circle with a radius of 250 pixels. The area outside the circle will be made transparent.
-
-    Args:
-        pil_image (PIL.Image.Image): The input image, must be 608x608.
-
-    Returns:
-        PIL.Image.Image: A new image with the circular crop applied.
-                         The image will be in RGBA format.
-    """
-    # Ensure the image has an alpha channel for transparency
-    img_rgba = pil_image.convert("RGBA")
-
-    mask = draw_center_circle(size=pil_image.size)
-    img_rgba.putalpha(mask)
-
-    return img_rgba
-
-
-def sum_of_vals(arr):
-    """Return the sum of all values in arr."""
-    sum = 0
-    for i in arr:
-        sum += i
-    return sum
-
-
-def get_random_valid_coords(sampling_image, boost=0):
-    """Get random valid coordinates in an image. Valid is in the center circle.
-
-    Args:
-        main_image (PIL.Image.Image): The image to get a bound from. Should be cropped before.
-        boost (int): The amount of boost to add. Can be positive or negative.
-
-    Returns:
-        tuple of len 3 representing (R, G, B) for the bound.
-    """
-    while True:
-        random_coordinates = (
-            random.randint(0, sampling_image.size[0] - 1),
-            random.randint(0, sampling_image.size[0] - 1),
+def warn_deprecated_vgg_device(vgg_device_arg):
+    if vgg_device_arg is not None:
+        print(
+            "Warning: --vgg-device is deprecated and ignored. "
+            "VGGLoss now runs on the local training device.",
+            flush=True,
         )
-        bound = list(sampling_image.getpixel(random_coordinates))
-        if not bound[3] == 0:
-            bound[3] = 0
-            cloud_brightness = random.randint(min(0, boost), max(0, boost))
-            for i in range(len(bound)):
-                # print(upper_bound[i])
-                bound[i] = (
-                    numpy.clip(0, 255, bound[i] + cloud_brightness)
-                )
-            bound = tuple(bound[:3])
-            return bound
-
-
-def make_alpha_image(
-    blend_strength=0.0,
-    scale=random.uniform(150, 300),
-    octaves=random.randint(3, 5),
-    persistence=random.uniform(0.4, 0.5),
-    lacunarity=random.uniform(2.0, 2.2),
-    iterations=random.randint(2, 4),
-):
-    alpha_world = generate_perlin_noise_map(
-        settings.IMAGE_SIZE[0],
-        scale=scale,
-        octaves=octaves,
-        persistence=persistence,
-        lacunarity=lacunarity,
-        iterations=iterations,
-    )
-    circle_mask = numpy.array(draw_center_circle())
-    final_alpha = ((alpha_world * blend_strength) * (circle_mask / 255.0) * 255).astype(numpy.uint8)
-    return Image.fromarray(final_alpha)
-
-
-class CombineWithClouds:
-    def __init__(self, output_size, noise_strength=None):
-        # self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.output_size = output_size
-        self.alpha_strength = noise_strength
-
-    def __call__(self, main_image):
-        main_image = main_image.convert("RGBA")
-
-        # Using the pixels in the image plus a grey
-        # relies on randomness to eventually pick a valid pixel
-        lower_bound = [0, 0, 0]
-        upper_bound = [255, 255, 255]
-        # sampling_image = crop_to_center_circle(main_image)
-        # Pick lower bound
-        upper_bound = get_random_valid_coords(main_image, boost=150)
-        lower_bound = get_random_valid_coords(main_image, boost=-10)
-
-        if sum_of_vals(lower_bound) > sum_of_vals(upper_bound):
-            # crude check
-            lower_bound, upper_bound = upper_bound, lower_bound
-
-        alpha_lower_bound = settings.ALPHA_LOWER_BOUND
-        alpha_upper_bound = settings.ALPHA_UPPER_BOUND
-
-        fake_clouds = generate_perlin_noise_map(
-            settings.IMAGE_SIZE[0], iterations=random.randint(3, 5)
-        )
-        fake_clouds = colorize_array(
-            fake_clouds, lower_bound=lower_bound, upper_bound=upper_bound
-        )
-        blend_strength = random.uniform(alpha_lower_bound, alpha_upper_bound)
-        if self.alpha_strength:
-            blend_strength = self.alpha_strength
-            print(f"blend_strength: {blend_strength}")
-
-        alpha_image = make_alpha_image(blend_strength=blend_strength)
-
-        r, g, b = fake_clouds.split()
-
-        fake_clouds = Image.merge("RGBA", (r, g, b, alpha_image))
-
-        combined_image = Image.alpha_composite(main_image, fake_clouds) 
-        final_image = combined_image.copy()
-
-        blurred_image = combined_image.filter(
-
-            ImageFilter.GaussianBlur(radius=random.randint(0, 1) if self.alpha_strength else 0)
-        )
-
-        blur_mask = draw_center_circle()
-        final_image.paste(blurred_image, (0, 0), blur_mask)
-
-        return final_image.convert("RGB")
-
-
-class RandomApplyTransforms:
-    # His name is Randy
-    def __init__(self, output_size, random_threshold, noise_weight, noise_strength=None):
-        self.output_size = output_size
-        self.random_threshold = random_threshold
-        self.noise_weight = noise_weight
-        self.alpha_strength = noise_strength
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    def __call__(self, sample):
-        # for debugging why my computer crashes
-        # return FU.to_tensor(sample)
-
-        if random.uniform(0, 1) > self.random_threshold:
-            # do nothing
-            return TF.to_tensor(sample)
-
-        cloud = CombineWithClouds(self.output_size, self.alpha_strength)
-
-        sample = cloud(sample)
-        sample = TF.to_tensor(sample)
-        noise = torch.rand_like(sample) * self.noise_weight
-        sample = sample + noise
-        sample = torch.clamp(sample, 0.0, 1.0)
-
-        return sample
 
 
 def train_model(
-    IMG_CHANNELS_IN=3,
-    NUM_CLASSES_OUT=3,
-    START_FILTERS=settings.START_FILTERS,
+    n_channels_in=3,
+    n_classes_out=3,
+    start_filters=None,
     data_dir=os.path.join("data", "images"),
+    output_dir=settings.MODEL_SAVE_PATH,
+    model_name="unetpp",
+    device_arg=None,
+    vgg_device_arg=None,
+    batch_size=settings.BATCH_SIZE,
+    num_workers=settings.NUM_WORKERS,
     num_epochs=settings.NUM_EPOCHS,
     previous_model_path=None,
     levels=5,
@@ -438,16 +151,24 @@ def train_model(
     All of the args should be self explanatory.
 
     Args:
-        IMG_CHANNELS_IN (int)
-        NUM_CLASSES_OUT (int)
-        START_FILTERS (int): configured in settings
-        DATA_DIR (str)
+        n_channels_in (int)
+        n_classes_out (int)
+        start_filters (int | None): defaults to the selected model constructor value
+        data_dir (str)
+        output_dir (str)
+        model_name (str)
+        device_arg (str | None)
+        batch_size (int): configured in settings
+        num_workers (int): configured in settings
         num_epochs (int): configured in settings
         previous_model_path (str)
         debug (bool): exits the loop early for displaying a sample of target and training data
     """
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device, device_ids = resolve_training_devices(device_arg)
+    warn_deprecated_vgg_device(vgg_device_arg)
+    vgg_device = device
     print(f"Using device: {device}")
+    print(f"Using VGG device: {vgg_device}")
 
     print(f"PyTorch version: {torch.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()}")
@@ -488,7 +209,13 @@ def train_model(
     )
 
     train_dataloader, valid_dataloader = make_dataloaders(
-        train, valid, data_dir, clear_transform, cloud_transform
+        train,
+        valid,
+        data_dir,
+        clear_transform,
+        cloud_transform,
+        batch_size=batch_size,
+        num_workers=num_workers,
     )
 
     if debug:
@@ -503,8 +230,7 @@ def train_model(
         )  # Show first clear image in batch
         return -1
 
-    if not os.path.exists(settings.MODEL_SAVE_PATH):
-        os.mkdir(settings.MODEL_SAVE_PATH)
+    os.makedirs(output_dir, exist_ok=True)
 
     scaler = None
     if settings.USE_AMP and device.type == "cuda":
@@ -513,14 +239,14 @@ def train_model(
 
     start_epoch = 0
 
-    model = DeepUNet(
-        n_channels_in=IMG_CHANNELS_IN,
-        n_classes_out=NUM_CLASSES_OUT,
-        start_filters=START_FILTERS,
-    )
+    resolved_start_filters = start_filters
+    if resolved_start_filters is None:
+        resolved_start_filters = get_model_default_start_filters(model_name)
+
+    model = build_model(model_name, n_channels_in, n_classes_out, start_filters)
     if previous_model_path is None:
         print(
-            f"Initialized DeepUNet with {levels} layers, {IMG_CHANNELS_IN} channels in, {NUM_CLASSES_OUT} classes out, and {START_FILTERS} start filters."
+            f"Initialized {model.__class__.__name__} with {levels} layers, {n_channels_in} channels in, {n_classes_out} classes out, and {resolved_start_filters} start filters."
         )
     else:
         if not os.path.exists(previous_model_path):
@@ -529,14 +255,16 @@ def train_model(
             )
             return -1
         checkpoint = torch.load(previous_model_path)
-        start_filters = checkpoint["start_filters"]
+        resolved_start_filters = checkpoint["start_filters"]
         in_channels = checkpoint["in_channels"]
         out_channels = checkpoint["out_channels"]
+        checkpoint_model_name = checkpoint.get("model_name", model_name)
         start_epoch = checkpoint["epoch"]
-        model = DeepUNet(
-            n_channels_in=in_channels,
-            n_classes_out=out_channels,
-            start_filters=start_filters,
+        model = build_model(
+            checkpoint_model_name,
+            in_channels,
+            out_channels,
+            resolved_start_filters,
         )
         loaded_state_dict = checkpoint["model_state_dict"]
 
@@ -559,31 +287,24 @@ def train_model(
 
         # model.load_state_dict(checkpoint["model_state_dict"])
         print(
-            f"Loading model from {previous_model_path} with {in_channels} channels in, {out_channels} classes out, and {start_filters} start filters."
+            f"Loading {model.__class__.__name__} from {previous_model_path} with {in_channels} channels in, {out_channels} classes out, and {resolved_start_filters} start filters."
         )
 
-    if torch.cuda.is_available() and torch.cuda.device_count() > 2:
+    if device_ids and len(device_ids) > 1:
         print(
-            f"Wrapping model with nn.DataParallel for {torch.cuda.device_count()} GPUs."
+            f"Wrapping model with nn.DataParallel for devices {device_ids}."
         )
-        if settings.USE_DEVICE_IDS:
-            print(f"Using only devices {settings.DEVICE_IDS}")
-            model = model.to(f"cuda:{int(settings.DEVICE_IDS[0])}")
-            model = nn.DataParallel(
-                model,
-                device_ids=settings.DEVICE_IDS,
-                output_device=settings.DEVICE_IDS[0],
-            )
-        else:
-            model = model.to(device)
-            model = nn.DataParallel(model)
+        model = model.to(device)
+        model = nn.DataParallel(
+            model,
+            device_ids=device_ids,
+            output_device=device_ids[0],
+        )
     else:
         model = model.to(device)
 
     criterion = nn.L1Loss()
-    vgg_loss_crit = VGGLoss().to(
-        f"cuda:{settings.VGG_DEVICE_ID}" if settings.USE_VGG_DEVICE else device
-    )
+    vgg_loss_crit = VGGLoss().to(vgg_device)
     L1_WEIGHT = 0
     VGG_WEIGHT = 1
 
@@ -606,35 +327,20 @@ def train_model(
         batch_start_time = time.time()
 
         for i, (inputs, targets) in enumerate(train_dataloader):
-            inputs, targets = inputs.to(
-                f"cuda:{settings.DEVICE_IDS[0]}" if settings.USE_DEVICE_IDS else device
-            ), targets.to(
-                f"cuda:{settings.DEVICE_IDS[0]}" if settings.USE_DEVICE_IDS else device
-            )
+            inputs, targets = inputs.to(device), targets.to(device)
             optimizer.zero_grad()
 
             if scaler:  # AMP
-                with torch.amp.autocast(
-                    device_type="cuda" if torch.cuda.is_available() else "cpu"
-                ):
+                with torch.autocast(device_type='cuda'):
                     outputs = model(inputs)
                     l1_loss = criterion(outputs, targets)
                     outputs = (outputs + 1.0) / 2.0
                     targets = (targets + 1.0) / 2.0
-                    if settings.USE_VGG_DEVICE:
-                        vgg_loss = vgg_loss_crit(
-                            outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                            vgg_loss_crit.get_features(
-                                targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
-                            ),
-                            target_is_features=True,
-                        )
-                    else:
-                        vgg_loss = vgg_loss_crit(
-                            outputs,
-                            vgg_loss_crit.get_features(targets),
-                            target_is_features=True,
-                        )
+                    vgg_loss = vgg_loss_crit(
+                        outputs,
+                        vgg_loss_crit.get_features(targets),
+                        target_is_features=True,
+                    )
                 loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
                 scaler.scale(loss).backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -645,20 +351,11 @@ def train_model(
                 l1_loss = criterion(outputs, targets)
                 outputs = (outputs + 1.0) / 2.0
                 targets = (targets + 1.0) / 2.0
-                if settings.USE_VGG_DEVICE:
-                    vgg_loss = vgg_loss_crit(
-                        outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                        vgg_loss_crit.get_features(
-                            targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
-                        ),
-                        target_is_features=True,
-                    )
-                else:
-                    vgg_loss = vgg_loss_crit(
-                        outputs,
-                        vgg_loss_crit.get_features(targets),
-                        target_is_features=True,
-                    )
+                vgg_loss = vgg_loss_crit(
+                    outputs,
+                    vgg_loss_crit.get_features(targets),
+                    target_is_features=True,
+                )
                 loss = l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -685,37 +382,18 @@ def train_model(
         running_val_loss = 0.0
         with torch.no_grad():
             for inputs, targets in valid_dataloader:
-                inputs, targets = inputs.to(
-                    f"cuda:{settings.DEVICE_IDS[0]}"
-                    if settings.USE_DEVICE_IDS
-                    else device
-                ), targets.to(
-                    f"cuda:{settings.DEVICE_IDS[0]}"
-                    if settings.USE_DEVICE_IDS
-                    else device
-                )
+                inputs, targets = inputs.to(device), targets.to(device)
                 if scaler:  # AMP for validation
-                    with torch.amp.autocast(
-                        device_type="cuda" if torch.cuda.is_available() else "cpu"
-                    ):
+                    with torch.autocast(device_type='cuda'):
                         outputs = model(inputs)
                         l1_loss = criterion(outputs, targets)
                         outputs = (outputs + 1.0) / 2.0
                         targets = (targets + 1.0) / 2.0
-                        if settings.USE_VGG_DEVICE:
-                            vgg_loss = vgg_loss_crit(
-                                outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                                vgg_loss_crit.get_features(
-                                    targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
-                                ),
-                                target_is_features=True,
-                            )
-                        else:
-                            vgg_loss = vgg_loss_crit(
-                                outputs,
-                                vgg_loss_crit.get_features(targets),
-                                target_is_features=True,
-                            )
+                        vgg_loss = vgg_loss_crit(
+                            outputs,
+                            vgg_loss_crit.get_features(targets),
+                            target_is_features=True,
+                        )
                         loss = (
                             l1_loss * L1_WEIGHT
                             + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
@@ -725,20 +403,11 @@ def train_model(
                     l1_loss = criterion(outputs, targets)
                     outputs = (outputs + 1.0) / 2.0
                     targets = (targets + 1.0) / 2.0
-                    if settings.USE_VGG_DEVICE:
-                        vgg_loss = vgg_loss_crit(
-                            outputs.to(f"cuda:{settings.VGG_DEVICE_ID}"),
-                            vgg_loss_crit.get_features(
-                                targets.to(f"cuda:{settings.VGG_DEVICE_ID}")
-                            ),
-                            target_is_features=True,
-                        )
-                    else:
-                        vgg_loss = vgg_loss_crit(
-                            outputs,
-                            vgg_loss_crit.get_features(targets),
-                            target_is_features=True,
-                        )
+                    vgg_loss = vgg_loss_crit(
+                        outputs,
+                        vgg_loss_crit.get_features(targets),
+                        target_is_features=True,
+                    )
                     loss = (
                         l1_loss * L1_WEIGHT + vgg_loss.to(l1_loss.device) * VGG_WEIGHT
                     )
@@ -761,41 +430,43 @@ def train_model(
 
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
-            model_name = "checkpoint_best.pth"
+            checkpoint_name = "checkpoint_best.pth"
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
-                    "start_filters": START_FILTERS,
-                    "in_channels": IMG_CHANNELS_IN,
-                    "out_channels": NUM_CLASSES_OUT,
+                    "model_name": model_name,
+                    "start_filters": resolved_start_filters,
+                    "in_channels": n_channels_in,
+                    "out_channels": n_classes_out,
                     "epoch": epoch,
                 },
-                os.path.join(settings.MODEL_SAVE_PATH, model_name),
+                os.path.join(output_dir, checkpoint_name),
             )
             print(
-                f"Model improved. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
+                f"Model improved. Saved to {output_dir} (Val Loss: {best_val_loss:.4f})"
             )
 
         if epoch % settings.EPOCH_SAVE_INTERVAL == 0:
 
-            model_name = f"checkpoint_epoch_{epoch}.pth"
+            checkpoint_name = f"checkpoint_epoch_{epoch}.pth"
             torch.save(
                 {
                     "model_state_dict": model.state_dict(),
-                    "start_filters": START_FILTERS,
-                    "in_channels": IMG_CHANNELS_IN,
-                    "out_channels": NUM_CLASSES_OUT,
+                    "model_name": model_name,
+                    "start_filters": resolved_start_filters,
+                    "in_channels": n_channels_in,
+                    "out_channels": n_classes_out,
                     "epoch": epoch,
                 },
-                os.path.join(settings.MODEL_SAVE_PATH, model_name),
+                os.path.join(output_dir, checkpoint_name),
             )
             print(
-                f"Reached a checkpoint. Saved to {settings.MODEL_SAVE_PATH} (Val Loss: {best_val_loss:.4f})"
+                f"Reached a checkpoint. Saved to {output_dir} (Val Loss: {best_val_loss:.4f})"
             )
 
     print("\n--- Training Finished ---")
     print(f"Best Validation Loss: {best_val_loss:.4f}")
-    print(f"Best model saved at: {settings.MODEL_SAVE_PATH}")
+    print(f"Best model saved at: {output_dir}")
 
 
 def show_tensor_image(tensor):
@@ -804,12 +475,43 @@ def show_tensor_image(tensor):
     image.show()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-dir", default=os.path.join("png_split_training_images"))
+    parser.add_argument("--output-dir", default=settings.MODEL_SAVE_PATH)
+    parser.add_argument("--model", default="unet", choices=get_model_names())
+    parser.add_argument("--device")
+    parser.add_argument(
+        "--vgg-device",
+        help="Deprecated and ignored. VGGLoss now runs on the local training device.",
+    )
+    parser.add_argument("--batch-size", type=int, default=settings.BATCH_SIZE)
+    parser.add_argument("--workers", type=int, default=settings.NUM_WORKERS)
+    parser.add_argument("--epochs", type=int, default=settings.NUM_EPOCHS)
+    parser.add_argument("--debug", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--n-channels-in", type=int, default=3)
+    parser.add_argument("--n-classes-out", type=int, default=3)
+    parser.add_argument("--previous-model-path")
+    parser.add_argument("--start-filters", type=int)
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    args = parse_args()
     train_model(
-        # data_dir=os.path.join("data", "images"),
-        data_dir=os.path.join("png_split_training_images"),
-        # previous_model_path=os.path.join("models", "64_checkpoint_best.pth"),
-        debug=True,
+        data_dir=args.data_dir,
+        output_dir=args.output_dir,
+        model_name=args.model,
+        device_arg=args.device,
+        vgg_device_arg=args.vgg_device,
+        batch_size=args.batch_size,
+        num_workers=args.workers,
+        n_channels_in=args.n_channels_in,
+        n_classes_out=args.n_classes_out,
+        num_epochs=args.epochs,
+        previous_model_path=args.previous_model_path,
+        start_filters=args.start_filters,
+        debug=args.debug,
         levels=5,
     )
 
