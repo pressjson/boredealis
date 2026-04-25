@@ -3,31 +3,134 @@
 
 Using machine learning to remove clouds from a video of the Aurora Borealis.
 
-* Different Model Architectures
+* A Letter to the Future Maintainers
 
-I have this up top because I'm a lame bozo who wants to have this important section up top. Eventually it will go down below.
+Throw on some Philip Glass for this one.
 
-I am now trying a variety of different architectures instead of just the U-Net. You can find the complete list in [[file:models/][the models section]]. But for now, here are the rankings for each model I've tested and trained.
+Well, this is it for me. It's time to let my baby go. She grew up so fast.
 
-** The Actually Good Models
+I just have a few things to say.
 
-1. U-Net (~DeepUNet~). The OG King.
-2. U-Net Plus Plus (~unetpp~). The OG King++, but sometimes C is better than C++.
+** Chat
 
-** The Abominations
+I have but one actual request:
 
-1. EDSR. It does not like this pipeline.
+*Please don't let this become a vibe coded project.*
+
+Some "agentic engineering" is fine for the bullshit that is not fun to do. Just don't let Claude Code get its grimy little hands on this. You can ask Chat for things, but I urge you to write the code by hand, to use your /dinkum thinkum/ and not Sam Altman's. "It's a learning experience" is true.
+
+You should have fun with this. The same fun I had with this.
+
+** Ficus
+
+Everything *should* just work with Ficus. Ask Dr. Scalzo for access, or use the fancy new one whose name I do not know. Don't waste cloud compute credits on this.
+
+If you want my workflow, I have my development local, using Emacs on my files. I set up a [[https://mutagen.io/][Mutagen project]] with ~sync: <project_name>: mode: one-way-safe~ in a ~mutagen.yml~ to copy over my file edits to Ficus, and then have a Ficus shell for running tests. ~nohup~ will be your best friend for starting long projects.
+
+** Loonix
+
+I hope you're familiar with your terminal. If not, get used to it. It seems scary at first, but then you realize it's actually quite potent. But you should already know this, right?
+
+There are tools to make living in the command line awesome, like [[https://github.com/ajeetdsouza/zoxide][zoxide]], [[https://github.com/tmux/tmux/wiki][tmux]] or [[https://zellij.dev/][zellij]], and [[https://github.com/nvbn/thefuck][The Fuck]]. The stock shell can be miserable, but it becomes so awesome as soon as you get used to it.
+
+If you /can/ install Linux on your Windows machine, I would recommend doing that. "bUt mY gAmInG" get off CoD, realize that Wine 11.0 is actually faster than Windows 11, and enjoy non-competitive games (source: a Deadlock player); or dual boot. It turns out some FOSS projects are really, /really/ good. Like Linux. If you can't live without [[https://microslop.com/][Microslop]] and can't dual boot, then at least use WSL.
+
+macOS is fine. Zsh is a good default shell, their laptops feel good, and Apple Silicon is basically magic. Enjoy paying [[https://git-fork.com/][$60 for a lazygit wrapper]] (for real tho, no shade to Fork, it's cool I guess. It's just a shame most software costs money on macOS, and don't get me started on the iPad).
+
+** Vision
+
+I'm the kind of programmer that lives in the terminal and Doom Emacs, because I can't quite make the leap to Neovim. Some things like Org and ~M-x fireplace~ are just too good to give up, but Vim (~h/j/k/l~) and leader keybindings (~SPC f s~) are life changing (I find myself trying to use them literally everywhere, like Google Docs).
+
+If you want to make a website, go for it. Use WebGPU and whatever bullshit Javascript framework is the flavor of the week, or burn money renting cloud GPUs.
+
+I urge you to please keep the TUI available. It's easier to pass as flags rather than do every test as a drag and drop. Plus, SSH-ing into Ficus is so much easier than trying to use it as backend infra.
+
+** Understand What You're Doing
+
+Talk to Old Man Fasel. He's a really good person to talk to, even if he sometimes hits really weird tangents. He understands absolutely nothing about AI, which is /perfect/ for testing your knowledge. When you inevitably write The White Paper™, you /will/ absolutely need to be able to explain every aspect of this project and anything tangentially related to this project to beyond expert level, all the way back to fundamental principles. He is the perfect person to test this with.
+
+Old Man Fasel has a treasure trove of wisdom. Dr. Scalzo has a repository of knowledge. There is some of my knowledge in here, specifically in [[file:white_papers/][the white papers]], and especially in the references within them. Before you start, spend a day reading and talking to them.
+
+** What is .org? Why not .md?
+
+[[https://orgmode.org/][Org mode]] is [[https://www.youtube.com/watch?v=XRpHIa-2XCE][not just a markup language]]. It is capable of so much more than what I'm using it for.
+
+#+begin_src python :results output
+print("Hello, world!")
+#+end_src
+
+#+RESULTS:
+: Hello, world!
+
+It can execute Python like a Jupyter notebook! If you're especially masochistic, you can replace Jupyter notebooks with Org Babel. And not just Python either.
+
+#+begin_src C :includes <stdio.h>
+int a = 1, b = 2;
+printf("%d\n", a + b);
+#+end_src
+
+#+RESULTS:
+: 3
+
+Which is crazy. That's C. Being executed. In a text file. Kind of. Well, because Org is so powerful, it is theoretically possible to have an RCE in Org Babel, because you can write and execute arbitrary code.
+
+#+begin_src shell :results output
+source venv/bin/activate
+python main.py -h
+#+end_src
+
+#+RESULTS:
+#+begin_example
+usage: main.py [-h] [--model MODEL]
+               [--model-name {attention_unet,attentionunet,deep_unet,deeplab_v3_plus,deeplabv3plus,deepunet,edsr,fpn_unet,fpnunet,nafnet,rdn,res_unet,restormer,resunet,unet,unet_plus_plus,unetplusplus,unetpp}]
+               [--input INPUT] [--output OUTPUT] [--debug] [--verbose VERBOSE]
+               [--version] [--iterations ITERATIONS] [--blend BLEND]
+               [--device DEVICE] [--smoother SMOOTHER]
+
+options:
+  -h, --help            show this help message and exit
+  --model, -m MODEL     path to model
+  --model-name {attention_unet,attentionunet,deep_unet,deeplab_v3_plus,deeplabv3plus,deepunet,edsr,fpn_unet,fpnunet,nafnet,rdn,res_unet,restormer,resunet,unet,unet_plus_plus,unetplusplus,unetpp}
+                        override checkpoint model architecture
+  --input, -i INPUT     input path (include extension)
+  --output, -o OUTPUT   output path (include extension)
+  --debug, -d           enable debug
+  --verbose, -V VERBOSE
+                        enable verbose
+  --version, -v         show program's version number and exit
+  --iterations, -I ITERATIONS
+                        run the model ITERATIONS times, default 1
+  --blend BLEND         the amount of alpha to use "DDPM" with, default 0.0
+  --device DEVICE       use custom device DEVICE
+  --smoother, -s SMOOTHER
+                        path to smoother model; if none, no smoothing
+#+end_example
+
+That's just a full on shell command.
+
+Tables are also incredibly powerful, with more capability than Excel because you can use Lisp to make functions as cells. I can export this as a PDF using ~M-x org-latex-export-to-pdf~, which is what I wrote all of my Physics 210 lab reports in.
+
+I just like Org a lot more than Markdown. It's so cool. I'm just scratching the surface. At the lightest, it's just a Markdown alternative. At the heaviest, it's as if Notion and Obsidian had an open source baby (Obsidian isn't open source).
+
+Do you need Emacs to use Org mode? Probably not. Should you use Doom Emacs? Yes. Am I biased? Also yes.
+
+** Alla fine
+
+Ultimately, it's no longer my project. It's in your hands now.
+
+Take care of her.
+
+Goodbye, darling.
+
+* TODO
+
+1. Test /everything/
+2. Try the different model architectures
+3. Improve clouds?
+4. Write the paper
+5. Profit
 
 * Methodology
-
-@TODO:
-1. Upload my models to the releases tab
-2. Test /everything/
-3. Update run.sh (or just make it obsolete)
-   - Make it a bootstrap.sh instead
-4. Allow main.py to both filter and smooth a video
-   - Probably using a temp file to make life easier
-5. A TUI
 
 The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][Perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
@@ -175,9 +278,11 @@ Hit 'em with a ~./bootstrap.sh~ after a ~chmod +x bootstrap.sh~. This sets up yo
 Requirements:
 - ~venv~
 - ~pip~
-- ~curl~
+- ~curl~, probably.
 
 If you want to have CUDA enabled, you may have to install PyTorch manually. You can find how to in [[https://pytorch.org/get-started/locally/][the PyTorch website]]. It's one command. I believe in you.
+
+NOTE: this will make the virtual enviornment folder as ~venv~ by default.
 
 #+begin_src shell
 source venv/bin/activate # if not in the virtual enviornment already
@@ -210,23 +315,26 @@ python3 main.py --input <input_file> --output <output_location> --model <model_p
 
 Do a ~python3 main.py --help~ for a full list of available flags.
 
-#+BEGIN_QUOTE
-IMPORTANT: As far as I know, paths with spaces are NOT working. For example, this will /not/ work:
+#+begin_quote
+[!IMPORTANT]
+As far as I know, paths with spaces are NOT working. For example, this will /not/ work:
 
 #+BEGIN_SRC bash
-python3 main.py --input /home/pressjson/My Documents/boredealis/input_video.mov --output /home/pressjson/My Documents/boredealis/output_video.mov --model /home/pressjson/My Documents/boredealis/model.pth
+python3 main.py --input $HOME/My Documents/boredealis/input_video.mov \
+    --output $HOME/My Documents/boredealis/output_video.mov \
+    --model $HOME/My Documents/boredealis/model.pth
 #+END_SRC
 
 I don't know if escaping spaced characters works. But for the love of God, don't keep this project in a path that has spaces leading to it.
 
 Depending on how tedious the solution is, I will not be fixing this issue.
-#+END_QUOTE
+#+end_quote
 
 *** Do I have to type in the file paths every single time?
 
 Not necessarily. Most terminal emulators support dragging and dropping files as a way to paste their paths. Up arrow is a great way to re-bring up your last used query/entry.
 
-Usually copying a file (~C-c~) and pasting it (~C-V~) into the terminal also works. macOS's ~C-v~ works with most terminals (in macOS) just fine, but most Linux terminals require ~C-V~ (control + shift + v) to paste into terminals. Omarchy (btw) supports ~S-v~.
+Usually copying a file (~C-c~) and pasting it (~C-V~) into the terminal also works. macOS's ~S-v~ (command/super + v) works with most terminals (in macOS) just fine, but most Linux terminals require ~C-V~ (control + shift + v) to paste into terminals. Omarchy (btw) supports ~S-v~ in terminals.
 
 ** Where can I get some models?
 
