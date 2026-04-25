@@ -43,6 +43,18 @@ If you /can/ install Linux on your Windows machine, I would recommend doing that
 
 macOS is fine. Zsh is a good default shell, their laptops feel good, and Apple Silicon is basically magic. Enjoy paying [[https://git-fork.com/][$60 for a lazygit wrapper]] (for real tho, no shade to Fork, it's cool I guess. It's just a shame most software costs money on macOS, and don't get me started on the iPad).
 
+I feel the need to rant about Linux. Gimmie a minute. Skip if you're lame.
+
+*** Boomer Rant
+
+I went through all of the stages of operating systems. Grew up with macOS (my family is entirely macOS and I use a base M1 Macbook Air from time to time, so I am still familiar with their stuff), built my PC and used Windows 10 at the beginning of Covid, started developing and used WSL, and ditched Windows 11 for Linux. I've gone through Ubuntu, Mint, Fedora, Arch, a weird Nix phase that lasted about a week across a variety of machines from the worst laptops to some crazy high end PCs, and now Omarchy with the CachyOS kernel (which, aside from the installer, is just Arch under the hood).
+
+I've tried all of the major desktop enviornments (except for Niri, but Hyprland has native scrolling now so I feel no pressure to). Omarchy is, in my opinion, the best, especially with Hyprland supporting scrolling. I've been using it for almost a whole year (since Omarchy 3 released), only to deviate for a one week Nix bender. Once you get used to Omarchy, it's impossible to go back to anything else.
+
+At the very least, being familiar with Linux, especially in the world of tech, is important. The world runs on Linux.
+
+Boomer rant over.
+
 ** Vision
 
 I'm the kind of programmer that lives in the terminal and Doom Emacs, because I can't quite make the leap to Neovim. Some things like Org and ~M-x fireplace~ are just too good to give up, but Vim (~h/j/k/l~) and leader keybindings (~SPC f s~) are life changing (I find myself trying to use them literally everywhere, like Google Docs).
@@ -57,9 +69,9 @@ Talk to Old Man Fasel. He's a really good person to talk to, even if he sometime
 
 Old Man Fasel has a treasure trove of wisdom. Dr. Scalzo has a repository of knowledge. There is some of my knowledge in here, specifically in [[file:white_papers/][the white papers]], and especially in the references within them. Before you start, spend a day reading and talking to them.
 
-** What is .org? Why not .md?
+** Boomer Rant Part Two: The Wonders of Org Mode
 
-[[https://orgmode.org/][Org mode]] is [[https://www.youtube.com/watch?v=XRpHIa-2XCE][not just a markup language]]. It is capable of so much more than what I'm using it for.
+[[https://orgmode.org/][Org mode]] is [[https://www.youtube.com/watch?v=XRpHIa-2XCE][not just a markup language]]. It is capable of so much more than what I'm using it for. To see the results, open this in a text editor, or in the code inspector of GitHub.
 
 #+begin_src python :results output
 print("Hello, world!")
@@ -120,13 +132,15 @@ I just like Org a lot more than Markdown. It's so cool. I'm just scratching the 
 
 Do you need Emacs to use Org mode? Probably not. Should you use Doom Emacs? Yes. Am I biased? Also yes.
 
+Boomer rant part two over.
+
 ** Alla fine
 
-Ultimately, it's no longer my project. It's in your hands now.
+Ultimately, this is no longer my project. It's in your hands now.
 
 Take care of her.
 
-Goodbye, darling.
+Goodbye, darling. I'll miss you very much.
 
 * What's left to do?
 
