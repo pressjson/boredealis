@@ -5,7 +5,10 @@ Using machine learning to remove clouds from a video of the Aurora Borealis.
 
 * A Letter to the Future Maintainers
 
-Throw on some Philip Glass for this one.
+#+begin_quote
+[!TIP]
+Throw on some Philip Glass for this one. Mishima is good.
+#+end_quote
 
 Well, this is it for me. It's time to let my baby go. She grew up so fast.
 
@@ -43,7 +46,7 @@ I'm the kind of programmer that lives in the terminal and Doom Emacs, because I 
 
 If you want to make a website, go for it. Use WebGPU and whatever bullshit Javascript framework is the flavor of the week, or burn money renting cloud GPUs.
 
-I urge you to please keep the TUI available. It's easier to pass as flags rather than do every test as a drag and drop. Plus, SSH-ing into Ficus is so much easier than trying to use it as backend infra.
+I urge you to please keep the TUI available. It's easier to pass flags rather than do every test as a drag and drop, especially with [[file:batch_video_filter.py][batch filtering videos]]. Plus, SSH-ing into Ficus is so much easier than trying to use it as backend infra.
 
 ** Understand What You're Doing
 
@@ -72,7 +75,7 @@ printf("%d\n", a + b);
 #+RESULTS:
 : 3
 
-Which is crazy. That's C. Being executed. In a text file. Kind of. Well, because Org is so powerful, it is theoretically possible to have an RCE in Org Babel, because you can write and execute arbitrary code.
+Which is crazy. That's C. Being executed. In a text file. Kind of. Well, because Org is so powerful, it is theoretically possible to have an "RCE" in Org Babel, because you can write and execute arbitrary code.
 
 #+begin_src shell :results output
 source venv/bin/activate
@@ -122,7 +125,7 @@ Take care of her.
 
 Goodbye, darling.
 
-* TODO
+* What's left to do?
 
 1. Test /everything/
 2. Try the different model architectures
@@ -304,6 +307,8 @@ PyTorch on macOS already comes with ~mps~, so no need to install anything fancy.
 5. Have fun?
 
 * FAQ
+
+Well, I don't actually know if these are frequently asked because nobody has ever asked me these.
 
 ** How can I pass parameters into Boredealis?
 
