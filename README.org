@@ -147,7 +147,7 @@ Goodbye, darling. I'll miss you very much.
 1. Test /everything/
 2. Try the different model architectures
 3. Improve clouds?
-4. Write the paper
+4. Write The White Paper™
 5. Profit
 
 * Methodology/History
