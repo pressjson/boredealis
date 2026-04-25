@@ -7,7 +7,7 @@ Using machine learning to remove clouds from a video of the Aurora Borealis.
 
 #+begin_quote
 [!TIP]
-Throw on some Philip Glass for this one. Mishima is good.
+Throw on some Philip Glass for this one. /Mishima/ is good.
 #+end_quote
 
 Well, this is it for me. It's time to let my baby go. She grew up so fast.
@@ -16,9 +16,12 @@ I just have a few things to say.
 
 ** Chat
 
+#+begin_quote
+[!IMPORTANT]
 I have but one actual request:
 
 *Please don't let this become a vibe coded project.*
+#+end_quote
 
 Some "agentic engineering" is fine for the bullshit that is not fun to do. Just don't let Claude Code get its grimy little hands on this. You can ask Chat for things, but I urge you to write the code by hand, to use your /dinkum thinkum/ and not Sam Altman's. "It's a learning experience" is true.
 
@@ -34,7 +37,7 @@ If you want my workflow, I have my development local, using Emacs on my files. I
 
 I hope you're familiar with your terminal. If not, get used to it. It seems scary at first, but then you realize it's actually quite potent. But you should already know this, right?
 
-There are tools to make living in the command line awesome, like [[https://github.com/ajeetdsouza/zoxide][zoxide]], [[https://github.com/tmux/tmux/wiki][tmux]] or [[https://zellij.dev/][zellij]], and [[https://github.com/nvbn/thefuck][The Fuck]]. The stock shell can be miserable, but it becomes so awesome as soon as you get used to it.
+There are tools to make living in the command line awesome, like [[https://github.com/ajeetdsouza/zoxide][zoxide]], [[https://github.com/tmux/tmux/wiki][tmux]] or [[https://zellij.dev/][zellij]], and [[https://github.com/nvbn/thefuck][The Fuck]]. The stock shell can be miserable, but it becomes so awesome as soon as you get used to it. A good terminal also makes a difference. [[https://ghostty.org/][Ghostty]] is awesome.
 
 If you /can/ install Linux on your Windows machine, I would recommend doing that. "bUt mY gAmInG" get off CoD, realize that Wine 11.0 is actually faster than Windows 11, and enjoy non-competitive games (source: a Deadlock player); or dual boot. It turns out some FOSS projects are really, /really/ good. Like Linux. If you can't live without [[https://microslop.com/][Microslop]] and can't dual boot, then at least use WSL.
 
@@ -133,7 +136,7 @@ Goodbye, darling.
 4. Write the paper
 5. Profit
 
-* Methodology
+* Methodology/History
 
 The method by which I am training a model to remove clouds from the Borealis is by generating synthetic clouds with [[https://en.wikipedia.org/wiki/Perlin_noise][Perlin noise]]. Then, a clear image gets clouds laid over the part that has the sky. The clouded image becomes the input, and the clear image becomes the target. Rinse and repeat for a dataset of a million images.
 
@@ -238,7 +241,7 @@ If you want to read my COSC 210 report (the class in which I developed this mode
 
 ** Everything Put Together
 
-I made a fancy diagram for my AGU25 presentation. I want to show it off.
+I made a fancy diagram for my AGU25 presentation. I want to show it off. It works in dark mode, the only true way to have your computer. I seared my retinas confirming this does not work in light mode. Be thankful for the sacrifices I make.
 
 #+CAPTION: Fancy diagram.
 [[file:readme_images/the_whole_agu_diagram.svg]]
@@ -285,17 +288,21 @@ Requirements:
 
 If you want to have CUDA enabled, you may have to install PyTorch manually. You can find how to in [[https://pytorch.org/get-started/locally/][the PyTorch website]]. It's one command. I believe in you.
 
-NOTE: this will make the virtual enviornment folder as ~venv~ by default.
+#+begin_quote
+[!NOTE]
+This will make the virtual enviornment folder as ~venv~ by default. If you care enough to use ~.venv~, you're smart enough to know what to modify.
+#+end_quote
 
 #+begin_src shell
 source venv/bin/activate # if not in the virtual enviornment already
-pip3 uninstall torch torchaudio torchvision
+pip uninstall torch torchaudio torchvision
 # Use the appropriate command from https://pytorch.org/get-started/locally/ for your system
+# The latest version constantly updates, so use the latest command from their website
 # For me, I use the following since I have an AMD graphics card with ROCm:
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3
 #+end_src
 
-PyTorch on macOS already comes with ~mps~, so no need to install anything fancy. Just remember to pass ~--device mps~ into the models.
+PyTorch on macOS already comes with ~mps~, so no need to install anything fancy. Just remember to pass ~--device mps~ to take advantage of ~mps~.
 
 *** Install the packages manually
 
@@ -314,7 +321,7 @@ Well, I don't actually know if these are frequently asked because nobody has eve
 
 Instead of sitting through the interactive TUI every time, you can skip it by passing in parameters:
 
-#+begin_src bash
+#+begin_src shell 
 python3 main.py --input <input_file> --output <output_location> --model <model_path>
 #+end_src
 
@@ -324,7 +331,7 @@ Do a ~python3 main.py --help~ for a full list of available flags.
 [!IMPORTANT]
 As far as I know, paths with spaces are NOT working. For example, this will /not/ work:
 
-#+BEGIN_SRC bash
+#+BEGIN_SRC shell
 python3 main.py --input $HOME/My Documents/boredealis/input_video.mov \
     --output $HOME/My Documents/boredealis/output_video.mov \
     --model $HOME/My Documents/boredealis/model.pth
@@ -339,17 +346,20 @@ Depending on how tedious the solution is, I will not be fixing this issue.
 
 Not necessarily. Most terminal emulators support dragging and dropping files as a way to paste their paths. Up arrow is a great way to re-bring up your last used query/entry.
 
-Usually copying a file (~C-c~) and pasting it (~C-V~) into the terminal also works. macOS's ~S-v~ (command/super + v) works with most terminals (in macOS) just fine, but most Linux terminals require ~C-V~ (control + shift + v) to paste into terminals. Omarchy (btw) supports ~S-v~ in terminals.
+Usually copying a file (~C-c~) and pasting it (~C-V~, control + shift + v) into the terminal also works. macOS's ~S-v~ (command/super + v) works with most terminals (in macOS) just fine, but most Linux terminals require ~C-V~  to paste into terminals. Omarchy (btw) supports ~S-v~ in terminals.
 
 ** Where can I get some models?
 
-There are models available to download under the releases tab. Download a model (~.pth~ file) and use its path when prompted (or pass it in as a parameter with a flag).
+There are models available to download under the releases tab. Download a model (~.pth~ file) and use its path when prompted (or pass it in as a parameter with a flag). The latest release is usually the safest bet. I do not work on maintaining backwards compatibility, because Past Me made some really poor decisions.
 
-*Beware that larger models are /quite large and VRAM intensive/.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU (specifically its VRAM) to limit temperatures, or pre-emptively changing your GPU fans to 100% (I had to do this with my dying RX 6800 XT).
+#+begin_quote
+[!CAUTION]
+*Beware that larger models are quite large and VRAM intensive.* Use at your own risk. If your computer shuts down, it is probably because your VRAM got too hot and your computer went into a safety mode. If this occurs, try underclocking your GPU (specifically its VRAM) to limit temperatures, or pre-emptively setting your GPU fans to 100% (I have to do this with my dying RX 6800 XT).
+#+end_quote
 
 ** How do I install some images/videos for testing?
 
-A release containing two ~.avi~ videos and their corresponding folders of ~.png~ images is available in the releases tab.
+A release containing two ~.avi~ videos and their corresponding folders of ~.png~ images is available in the releases tab under the ~data~ tag.
 
 Because I am a chaotic mess, these images are uniformly named within a directory, but not between directories. Just . . . beware.
 
@@ -363,7 +373,7 @@ Create a copy of ~settings.py~ and name it ~local_settings.py~. I would not chan
 
 If you want to be super lazy and never change any settings and just want the noises to go away, you can make a symbolic link between ~settings.py~ and ~local_settings.py~:
 
-#+begin_src bash
+#+begin_src shell
 ln -s settings.py local_settings.py
 #+end_src
 
